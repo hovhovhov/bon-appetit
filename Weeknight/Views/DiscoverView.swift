@@ -12,9 +12,14 @@ struct DiscoverView: View {
                 WeeknightTheme.deepestPine.ignoresSafeArea()
                 content(size: proxy.size)
                 if store.recipeMode == .ready, !store.discoverRecipes.isEmpty {
-                    progressHeader
-                        .padding(.horizontal, 14)
-                        .padding(.top, 8)
+                    VStack(spacing: 7) {
+                        progressHeader
+                        if showsBackendStatus {
+                            BackendStatusView(onDark: true)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
                 }
             }
         }
@@ -26,6 +31,11 @@ struct DiscoverView: View {
         }
         .task { await store.loadRecipesIfNeeded() }
         .accessibilityIdentifier("discover-screen")
+    }
+
+    private var showsBackendStatus: Bool {
+        if case .local = store.backendState { return false }
+        return true
     }
 
     @ViewBuilder
@@ -171,7 +181,7 @@ struct DiscoverView: View {
             ProgressView()
                 .tint(WeeknightTheme.mint)
                 .scaleEffect(1.3)
-            Text("Loading local recipes…")
+            Text(store.backendState == .local ? "Loading local recipes…" : "Loading validated recipes…")
                 .font(.headline)
                 .foregroundStyle(Color.white)
         }

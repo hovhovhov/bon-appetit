@@ -125,6 +125,7 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
     let requiredAppliances: Set<KitchenAppliance>
     let protein: PreferredProtein
     let mealStyles: Set<MealStyle>
+    let provenance: RecipeProvenance
 
     init(
         id: ID,
@@ -142,7 +143,8 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         declaredAllergens: Set<MedicalAllergen> = [],
         requiredAppliances: Set<KitchenAppliance> = [],
         protein: PreferredProtein = .vegetarian,
-        mealStyles: Set<MealStyle> = []
+        mealStyles: Set<MealStyle> = [],
+        provenance: RecipeProvenance? = nil
     ) {
         self.id = id
         self.title = title
@@ -160,6 +162,7 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         self.requiredAppliances = requiredAppliances
         self.protein = protein
         self.mealStyles = mealStyles
+        self.provenance = provenance ?? .localDevelopmentFixture(sourceName: sourceName)
     }
 
     var estimatedCost: Money {
@@ -170,6 +173,30 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         ingredients.reduce(.zero()) { total, entry in
             total + entry.cost(for: servings, baseServings: self.servings)
         }
+    }
+}
+
+struct RecipeProvenance: Hashable, Codable, Sendable {
+    let recordVersion: Int
+    let sourceURL: URL?
+    let contentClearance: String
+    let sourceRightsStatus: String
+    let imageRightsStatus: String
+    let estimateSource: String
+    let estimateFreshnessDate: String
+    let estimateConfidence: String
+
+    static func localDevelopmentFixture(sourceName: String) -> RecipeProvenance {
+        RecipeProvenance(
+            recordVersion: 1,
+            sourceURL: nil,
+            contentClearance: "development-only",
+            sourceRightsStatus: "development-fixture-unverified",
+            imageRightsStatus: "weeknight-owned-placeholder",
+            estimateSource: "Weeknight local development estimate for \(sourceName)",
+            estimateFreshnessDate: "2026-08-31",
+            estimateConfidence: "low"
+        )
     }
 }
 

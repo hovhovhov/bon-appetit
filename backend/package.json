@@ -1,0 +1,29 @@
+{
+  "name": "weeknight-local-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-only Weeknight catalogue and personalization boundary",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <26"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "live:smoke": "tsx scripts/live-smoke.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
+  }
+}

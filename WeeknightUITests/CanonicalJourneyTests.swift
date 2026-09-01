@@ -510,3 +510,85 @@ final class Milestone3JourneyTests: XCTestCase {
         add(attachment)
     }
 }
+
+final class Milestone4JourneyTests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    func testBackendCataloguePersonalizationAndGeneratedWeekScreenshots() {
+        launch(
+            ["--reset-fixture", "--backend-enabled", "--backend-ignore-cache", "--m3-personalized", "--start-discover"],
+            baseURL: "http://127.0.0.1:8787"
+        )
+        XCTAssertTrue(app.staticTexts["Local backend · Stub personalization"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-")).firstMatch.exists)
+        capture("18-discover-backend-catalogue")
+
+        let carbonaraExplanation = element("discover-explanation-carbonara")
+        scrollTo(carbonaraExplanation)
+        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("backend match"))
+        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("pork"))
+        capture("19-backend-personalized-explanations")
+
+        app.tabBars.buttons["Plan"].tap()
+        XCTAssertTrue(app.buttons["autofill-plan"].waitForExistence(timeout: 5))
+        app.buttons["autofill-plan"].tap()
+        XCTAssertTrue(element("autofill-success").waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Local backend · Stub personalization"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Projected week")).firstMatch.exists)
+        capture("20-backend-generated-week")
+    }
+
+    func testInvalidBackendOutputShowsHonestLocalFallbackScreenshot() {
+        launch(
+            ["--reset-fixture", "--backend-enabled", "--backend-ignore-cache", "--start-discover"],
+            baseURL: "http://127.0.0.1:8790"
+        )
+        XCTAssertTrue(app.staticTexts["Local fallback active"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "failed validation")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
+        capture("21-honest-local-fallback")
+    }
+
+    func testBackendUnavailableRecoveryStateScreenshot() {
+        launch(
+            ["--reset-fixture", "--backend-enabled", "--backend-ignore-cache", "--start-discover"],
+            baseURL: "http://127.0.0.1:8799"
+        )
+        XCTAssertTrue(app.staticTexts["Offline · On-device mode"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["backend-retry"].exists)
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
+        capture("22-backend-unavailable-recovery")
+    }
+
+    private func launch(_ arguments: [String], baseURL: String) {
+        app = XCUIApplication()
+        app.launchArguments = arguments + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchEnvironment["WEEKNIGHT_BACKEND_BASE_URL"] = baseURL
+        app.launch()
+    }
+
+    private func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func scrollTo(_ target: XCUIElement) {
+        var attempts = 0
+        while (!target.exists || !target.isHittable) && attempts < 12 {
+            app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(target.exists)
+        XCTAssertTrue(target.isHittable)
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

@@ -53,6 +53,9 @@ struct RootView: View {
             try? await Task.sleep(nanoseconds: 2_600_000_000)
             store.confirmationMessage = nil
         }
+        .task {
+            await store.connectBackendIfNeeded()
+        }
     }
 }
 

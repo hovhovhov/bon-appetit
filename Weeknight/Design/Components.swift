@@ -1,5 +1,78 @@
 import SwiftUI
 
+struct BackendStatusView: View {
+    @Environment(AppStore.self) private var store
+    let onDark: Bool
+
+    private var isRetryable: Bool {
+        switch store.backendState {
+        case .fallback, .cached, .unavailable: true
+        case .local, .loading, .connected: false
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: statusIcon)
+                .foregroundStyle(statusColor)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.backendState.displayTitle)
+                    .font(.caption.weight(.bold))
+                if let detail = store.backendState.detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 4)
+            if isRetryable {
+                Button {
+                    Task { await store.connectBackend() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Retry local backend")
+                .accessibilityIdentifier("backend-retry")
+            }
+        }
+        .foregroundStyle(onDark ? Color.white : WeeknightTheme.primaryText)
+        .padding(.leading, 12)
+        .padding(.trailing, isRetryable ? 4 : 12)
+        .frame(minHeight: 44)
+        .background(onDark ? Color.black.opacity(0.54) : WeeknightTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(statusColor.opacity(0.45), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("backend-status-banner")
+    }
+
+    private var statusIcon: String {
+        switch store.backendState {
+        case .connected: "server.rack"
+        case .loading: "arrow.triangle.2.circlepath"
+        case .cached: "externaldrive.badge.checkmark"
+        case .fallback: "checkmark.shield"
+        case .unavailable: "wifi.slash"
+        case .local: "iphone"
+        }
+    }
+
+    private var statusColor: Color {
+        switch store.backendState {
+        case .connected: WeeknightTheme.mint
+        case .loading, .cached: Color(hex: 0xD8A23D)
+        case .fallback, .unavailable: Color(hex: 0xE38B73)
+        case .local: WeeknightTheme.leaf
+        }
+    }
+}
+
 struct BudgetProgressBar: View {
     let spent: Money
     let budget: Money
@@ -100,4 +173,3 @@ struct StatusPill: View {
             .clipShape(Capsule())
     }
 }
-

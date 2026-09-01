@@ -26,6 +26,7 @@ final class AppStore {
     private(set) var isAutofilling = false
     private(set) var planMutationCount = 0
     private(set) var persistenceErrorMessage: String?
+    private(set) var backendState: BackendConnectionState
     var confirmationMessage: String?
 
     private let recipeRepository: any RecipeRepository
@@ -33,6 +34,12 @@ final class AppStore {
     private let shoppingRepository: any ShoppingRepository
     private let persistence: any AppStatePersistence
     private let now: @Sendable () -> Date
+    private let backendClient: (any WeeknightBackendClient)?
+    private let backendCache: any BackendCatalogueCaching
+    private var backendCatalogueVersion: String?
+    private var backendRecommendationOrder: [Recipe.ID] = []
+    private var backendExplanations: [Recipe.ID: String] = [:]
+    private var isBackendConnecting = false
 
     init(
         arguments: [String] = ProcessInfo.processInfo.arguments,
@@ -40,6 +47,8 @@ final class AppStore {
         planRepository: (any PlanRepository)? = nil,
         shoppingRepository: any ShoppingRepository = MockShoppingRepository(),
         persistence: (any AppStatePersistence)? = nil,
+        backendClient: (any WeeknightBackendClient)? = nil,
+        backendCache: (any BackendCatalogueCaching)? = nil,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         let recipeMode = Self.mode(after: "--recipe-mode", in: arguments) ?? .ready
@@ -49,6 +58,13 @@ final class AppStore {
         let persistence = persistence ?? (arguments.isEmpty
             ? InMemoryAppStatePersistence()
             : AppStatePersistenceFactory.makeDefault())
+        let backendConfiguration = BackendConfiguration.current(arguments: arguments)
+        let resolvedBackendClient = backendClient
+            ?? backendConfiguration.map { URLSessionWeeknightBackendClient(configuration: $0) }
+        let resolvedBackendCache: any BackendCatalogueCaching = backendCache
+            ?? (arguments.contains("--backend-ignore-cache")
+                ? InMemoryBackendCatalogueCache()
+                : FileBackendCatalogueCache())
         var canonical = WeeknightFixture.canonicalSnapshot
         if arguments.contains("--m3-conflict") {
             canonical.preferences.medicalAllergens = [.soy]
@@ -89,14 +105,17 @@ final class AppStore {
         self.savedRecipeRecords = snapshot.savedRecipeRecords
         self.recipeNotes = snapshot.recipeNotes
         self.preferences = snapshot.preferences
-        self.recipeMode = recipeMode
+        self.recipeMode = resolvedBackendClient == nil ? recipeMode : .loading
         self.shoppingMode = shoppingMode
         self.savedMode = savedMode
         self.persistenceErrorMessage = persistenceErrorMessage
+        self.backendState = resolvedBackendClient == nil ? .local : .loading
         self.recipeRepository = recipeRepository
         self.planRepository = planRepository ?? MockPlanRepository(plan: snapshot.plan, shouldFailNextSave: shouldFail)
         self.shoppingRepository = shoppingRepository
         self.persistence = persistence
+        self.backendClient = resolvedBackendClient
+        self.backendCache = resolvedBackendCache
         self.now = now
         if arguments.contains("--start-preferences") {
             self.selectedTab = .preferences
@@ -106,7 +125,11 @@ final class AppStore {
     }
 
     var recipeLookup: [Recipe.ID: Recipe] { Planning.recipesByID(recipesForCalculations) }
-    var recipesForCalculations: [Recipe] { WeeknightFixture.recipes }
+    var recipesForCalculations: [Recipe] {
+        let available = Set(recipes.map(\.id))
+        let required = Set(WeeknightFixture.recipes.map(\.id))
+        return !recipes.isEmpty && required.isSubset(of: available) ? recipes : WeeknightFixture.recipes
+    }
     var filledCount: Int { Planning.filledSlots(in: plan).count }
     var totalCount: Int { plan.slots.count }
     var weeklySpend: Money {
@@ -146,12 +169,24 @@ final class AppStore {
     }
 
     var rankedDiscoverRecipes: [RankedRecipe] {
-        Personalization.rankedDiscoverRecipes(
+        let deterministic = Personalization.rankedDiscoverRecipes(
             recipes: recipes,
             plan: plan,
             preferences: preferences,
             savedRecipeIDs: Set(savedRecipeRecords.map(\.recipeID))
         )
+        guard !backendRecommendationOrder.isEmpty else { return deterministic }
+        let byID = Dictionary(uniqueKeysWithValues: deterministic.map { ($0.id, $0) })
+        let ordered = backendRecommendationOrder.compactMap { id -> RankedRecipe? in
+            guard let ranked = byID[id] else { return nil }
+            return RankedRecipe(
+                recipe: ranked.recipe,
+                score: ranked.score,
+                explanations: backendExplanations[id].map { [$0] } ?? ranked.explanations,
+                cautions: ranked.cautions
+            )
+        }
+        return ordered.count == deterministic.count ? ordered : deterministic
     }
 
     var discoverRecipes: [Recipe] {
@@ -251,6 +286,10 @@ final class AppStore {
 
     func loadRecipesIfNeeded() async {
         guard recipeMode == .loading else { return }
+        if backendClient != nil {
+            await connectBackend()
+            return
+        }
         do {
             recipes = try await recipeRepository.load(mode: .loading)
             recipeMode = recipes.isEmpty ? .empty : .ready
@@ -260,12 +299,107 @@ final class AppStore {
     }
 
     func retryRecipes() async {
+        if backendClient != nil {
+            await connectBackend()
+            return
+        }
         recipeMode = .loading
         do {
             recipes = try await recipeRepository.load(mode: .ready)
             recipeMode = recipes.isEmpty ? .empty : .ready
         } catch {
             recipeMode = .error
+        }
+    }
+
+    func connectBackendIfNeeded() async {
+        guard backendClient != nil else { return }
+        guard case .loading = backendState else { return }
+        await connectBackend()
+    }
+
+    func connectBackend() async {
+        guard let backendClient, !isBackendConnecting else { return }
+        isBackendConnecting = true
+        defer { isBackendConnecting = false }
+        backendState = .loading
+        recipeMode = .loading
+        backendRecommendationOrder = []
+        backendExplanations = [:]
+        do {
+            let response = try await backendClient.loadCatalogue()
+            let catalogue = try response.validatedDomainCatalogue()
+            try validateCatalogueCompatibility(catalogue)
+            recipes = catalogue.recipes
+            backendCatalogueVersion = catalogue.version
+            recipeMode = .ready
+            await backendCache.save(response)
+            do {
+                try await refreshBackendRecommendations()
+            } catch {
+                backendRecommendationOrder = []
+                backendExplanations = [:]
+                backendState = .fallback(message: "Backend ranking failed validation. The validated catalogue remains available with on-device ranking.")
+            }
+        } catch {
+            if let cachedResponse = await backendCache.loadCompatible(),
+               let catalogue = try? cachedResponse.validatedDomainCatalogue(),
+               (try? validateCatalogueCompatibility(catalogue)) != nil {
+                recipes = catalogue.recipes
+                backendCatalogueVersion = catalogue.version
+                recipeMode = .ready
+                backendState = .cached(message: "The backend is unavailable. Using the last validated catalogue with on-device ranking.")
+            } else {
+                recipes = WeeknightFixture.recipes
+                backendCatalogueVersion = nil
+                recipeMode = .ready
+                let invalid = error as? BackendClientError
+                if invalid == .invalidResponse || invalid == .incompatibleCatalogue {
+                    backendState = .fallback(message: "Backend data failed validation. Weeknight kept the approved on-device catalogue and rules.")
+                } else {
+                    backendState = .unavailable(message: "The backend could not be reached. Everything remains usable on device.")
+                }
+            }
+        }
+    }
+
+    private func refreshBackendRecommendations() async throws {
+        guard let backendClient, let backendCatalogueVersion else { return }
+        let deterministic = Personalization.rankedDiscoverRecipes(
+            recipes: recipes,
+            plan: plan,
+            preferences: preferences,
+            savedRecipeIDs: Set(savedRecipeRecords.map(\.recipeID))
+        )
+        let eligibleIDs = deterministic.map(\.id)
+        guard !eligibleIDs.isEmpty else {
+            backendState = .connected(provider: "stub")
+            return
+        }
+        let request = BackendRecommendationRequest(
+            schemaVersion: 1,
+            catalogueVersion: backendCatalogueVersion,
+            eligibleRecipeIDs: eligibleIDs,
+            scheduledRecipeIDs: plan.slots.compactMap(\.recipeID),
+            remainingBudgetMinorUnits: remainingBudget.minorUnits,
+            currency: plan.budget.currencyCode,
+            householdSize: preferences.householdSize,
+            preferences: backendSoftPreferences
+        )
+        let response = try await backendClient.recommendations(request)
+        guard response.schemaVersion == 1,
+              response.catalogueVersion == backendCatalogueVersion,
+              ["stub", "openai", "fallback"].contains(response.status),
+              Set(response.recommendations.map(\.recipeID)).count == response.recommendations.count,
+              Set(response.recommendations.map(\.recipeID)) == Set(eligibleIDs),
+              response.recommendations.allSatisfy({ !$0.explanation.isEmpty && $0.explanation.count <= 180 })
+        else { throw BackendClientError.invalidResponse }
+        backendRecommendationOrder = response.recommendations.map(\.recipeID)
+        backendExplanations = Dictionary(uniqueKeysWithValues: response.recommendations.map { ($0.recipeID, $0.explanation) })
+        if response.status == "fallback" {
+            backendState = .fallback(message: "AI personalization was unavailable, so the backend returned its deterministic safe ranking.")
+        } else {
+            backendState = .connected(provider: response.status)
         }
     }
 
@@ -291,6 +425,7 @@ final class AppStore {
         checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
         confirmationMessage = "\(recipe.title) added to \(day.rawValue). The week and shopping list are updated."
+        await refreshBackendRecommendationsIfReachable()
     }
 
     func updateServings(for day: Weekday, to servings: Int) async throws {
@@ -307,6 +442,7 @@ final class AppStore {
         checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
         confirmationMessage = "Servings updated. The plan, budget, and shopping list now agree."
+        await refreshBackendRecommendationsIfReachable()
     }
 
     func toggleSaved(_ recipeID: Recipe.ID) {
@@ -325,6 +461,9 @@ final class AppStore {
             savedRecipeRecords = previous
             persistenceErrorMessage = error.localizedDescription
             confirmationMessage = "The saved change could not be stored. Try again."
+        }
+        if backendClient != nil {
+            Task { await self.refreshBackendRecommendationsIfReachable() }
         }
     }
 
@@ -406,6 +545,7 @@ final class AppStore {
         persistenceErrorMessage = nil
         if didChangePlan { planMutationCount += 1 }
         confirmationMessage = "Preferences saved. Your plan and shopping list now agree."
+        await refreshBackendRecommendationsIfReachable()
     }
 
     func clearMeal(on day: Weekday) async throws {
@@ -421,6 +561,7 @@ final class AppStore {
         checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
         confirmationMessage = "\(day.rawValue)’s meal was cleared. The shopping list is updated."
+        await refreshBackendRecommendationsIfReachable()
     }
 
     func fillOpenDays() async throws -> AutofillOutcome {
@@ -429,6 +570,16 @@ final class AppStore {
         }
         isAutofilling = true
         defer { isAutofilling = false }
+
+        if backendClient != nil, backendCatalogueVersion != nil {
+            do {
+                if let backendOutcome = try await performBackendAutofill() {
+                    return backendOutcome
+                }
+            } catch let error as BackendClientError {
+                backendState = .fallback(message: "Backend week generation failed validation (\(error.localizedDescription)). The on-device engine completed the request instead.")
+            }
+        }
 
         let outcome = Personalization.autofill(
             plan: plan,
@@ -443,7 +594,100 @@ final class AppStore {
         plan = updated
         checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
-        confirmationMessage = "Open days filled. The plan and shopping list are ready."
+        confirmationMessage = backendClient == nil
+            ? "Open days filled. The plan and shopping list are ready."
+            : "Open days filled safely on device. The plan and shopping list are ready."
+        return .success(plan: updated, assignments: assignments, projectedSpend: projectedSpend)
+    }
+
+    private func performBackendAutofill() async throws -> AutofillOutcome? {
+        guard let backendClient, let backendCatalogueVersion else { return nil }
+        let openSlots = Planning.openSlots(in: plan)
+        guard !openSlots.isEmpty else { return nil }
+        let scheduledIDs = Set(plan.slots.compactMap(\.recipeID))
+        let eligible = recipesForCalculations.filter { recipe in
+            !scheduledIDs.contains(recipe.id)
+                && eligibility(for: recipe).isEligible
+                && recipe.activeMinutes <= preferences.maximumCookingMinutes
+        }
+        guard !eligible.isEmpty else { return nil }
+        let request = BackendWeekPlanRequest(
+            schemaVersion: 1,
+            catalogueVersion: backendCatalogueVersion,
+            eligibleRecipeIDs: eligible.map(\.id),
+            scheduledRecipeIDs: Array(scheduledIDs).sorted(),
+            openDays: openSlots.map(\.day.rawValue),
+            currentSpendMinorUnits: weeklySpend.minorUnits,
+            budgetMinorUnits: plan.budget.minorUnits,
+            currency: plan.budget.currencyCode,
+            householdSize: preferences.householdSize,
+            preferences: backendSoftPreferences
+        )
+        let response = try await backendClient.generateWeek(request)
+        guard response.schemaVersion == 1,
+              response.catalogueVersion == backendCatalogueVersion,
+              ["stub", "openai", "fallback"].contains(response.status),
+              ["success", "unable"].contains(response.outcome)
+        else { throw BackendClientError.invalidResponse }
+        guard response.outcome == "success" else {
+            backendState = .fallback(message: "The backend could not produce a complete safe week, so Weeknight is using its on-device engine.")
+            return nil
+        }
+
+        let expectedDays = Set(openSlots.map(\.day))
+        let candidateLookup = Dictionary(uniqueKeysWithValues: eligible.map { ($0.id, $0) })
+        let days = response.assignments.compactMap { Weekday(rawValue: $0.day) }
+        let selectedIDs = response.assignments.map(\.recipeID)
+        guard days.count == response.assignments.count,
+              response.assignments.count == openSlots.count,
+              Set(days) == expectedDays,
+              Set(selectedIDs).count == selectedIDs.count,
+              selectedIDs.allSatisfy({ candidateLookup[$0] != nil }),
+              response.assignments.allSatisfy({ !$0.explanation.isEmpty && $0.explanation.count <= 180 })
+        else { throw BackendClientError.invalidResponse }
+
+        var updated = plan
+        var assignments: [ShoppingContribution] = []
+        for assignment in response.assignments {
+            guard let day = Weekday(rawValue: assignment.day),
+                  let recipe = candidateLookup[assignment.recipeID],
+                  eligibility(for: recipe).isEligible,
+                  recipe.activeMinutes <= preferences.maximumCookingMinutes
+            else { throw BackendClientError.invalidResponse }
+            updated = Planning.assigning(
+                recipeID: recipe.id,
+                servings: preferences.householdSize,
+                to: day,
+                in: updated
+            )
+            assignments.append(
+                ShoppingContribution(
+                    day: day,
+                    recipeID: recipe.id,
+                    recipeTitle: recipe.title,
+                    servings: preferences.householdSize
+                )
+            )
+        }
+        let projectedSpend = Planning.weeklySpend(
+            plan: updated,
+            recipes: recipesForCalculations,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+        guard projectedSpend <= updated.budget else { throw BackendClientError.invalidResponse }
+
+        let reconciledChecks = validCheckedIDs(for: updated)
+        try await planRepository.savePlan(updated)
+        try persistence.save(snapshot(plan: updated, checkedIngredientIDs: reconciledChecks))
+        plan = updated
+        checkedIngredientIDs = reconciledChecks
+        planMutationCount += 1
+        if response.status == "fallback" {
+            backendState = .fallback(message: "AI was unavailable. The backend’s deterministic engine generated this validated week.")
+        } else {
+            backendState = .connected(provider: response.status)
+        }
+        confirmationMessage = "Backend week applied after on-device safety and budget checks. Shopping is updated."
         return .success(plan: updated, assignments: assignments, projectedSpend: projectedSpend)
     }
 
@@ -461,12 +705,47 @@ final class AppStore {
         savedRecipeRecords = canonical.savedRecipeRecords
         recipeNotes = canonical.recipeNotes
         preferences = canonical.preferences
-        recipeMode = .ready
+        recipeMode = backendClient == nil ? .ready : .loading
         shoppingMode = .ready
         savedMode = .ready
         selectedTab = .plan
         confirmationMessage = "The canonical demo week has been reset."
         planMutationCount = 0
+        if backendClient != nil {
+            backendCatalogueVersion = nil
+            backendRecommendationOrder = []
+            backendExplanations = [:]
+            backendState = .loading
+            Task { await self.connectBackend() }
+        }
+    }
+
+    private var backendSoftPreferences: BackendSoftPreferences {
+        BackendSoftPreferences(
+            maximumCookingMinutes: preferences.maximumCookingMinutes,
+            dislikedIngredientIDs: preferences.dislikedIngredientIDs.sorted(),
+            preferredProteins: PreferredProtein.allCases
+                .filter(preferences.preferredProteins.contains)
+                .map(\.rawValue),
+            preferredMealStyles: MealStyle.allCases
+                .filter(preferences.preferredMealStyles.contains)
+                .map(\.rawValue),
+            savedRecipeIDs: savedRecipeRecords.map(\.recipeID).sorted()
+        )
+    }
+
+    private func validateCatalogueCompatibility(_ catalogue: BackendCatalogue) throws {
+        let remoteIDs = Set(catalogue.recipes.map(\.id))
+        let approvedIDs = Set(WeeknightFixture.recipes.map(\.id))
+        let scheduledIDs = Set(plan.slots.compactMap(\.recipeID))
+        guard approvedIDs.isSubset(of: remoteIDs), scheduledIDs.isSubset(of: remoteIDs),
+              catalogue.recipes.allSatisfy({ $0.estimatedCost.currencyCode == plan.budget.currencyCode })
+        else { throw BackendClientError.incompatibleCatalogue }
+    }
+
+    private func refreshBackendRecommendationsIfReachable() async {
+        guard backendClient != nil, backendCatalogueVersion != nil else { return }
+        try? await refreshBackendRecommendations()
     }
 
     private func validCheckedIDs(

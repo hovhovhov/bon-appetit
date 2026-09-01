@@ -36,6 +36,10 @@ struct PlanView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header
+                if showsBackendStatus {
+                    BackendStatusView(onDark: false)
+                        .padding(.top, 10)
+                }
                 BudgetCard(guidance: budgetGuidance)
                     .padding(.top, WeeknightTheme.Spacing.standard)
                 shoppingSummary
@@ -74,6 +78,11 @@ struct PlanView: View {
             Text(planActionError ?? "Try again.")
         }
         .accessibilityIdentifier("plan-screen")
+    }
+
+    private var showsBackendStatus: Bool {
+        if case .local = store.backendState { return false }
+        return true
     }
 
     private var header: some View {
@@ -292,6 +301,9 @@ private struct AutofillResultSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if showsBackendStatus {
+                        BackendStatusView(onDark: false)
+                    }
                     switch presentation.outcome {
                     case .success(_, let assignments, let projectedSpend):
                         Label("Your open days are filled", systemImage: "checkmark.circle.fill")
@@ -358,6 +370,11 @@ private struct AutofillResultSheet: View {
             if case .success = presentation.outcome { return "autofill-success" }
             return "autofill-unable"
         }())
+    }
+
+    private var showsBackendStatus: Bool {
+        if case .local = store.backendState { return false }
+        return true
     }
 }
 

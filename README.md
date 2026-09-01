@@ -1,85 +1,123 @@
 # Weeknight
 
-Weeknight is a native SwiftUI iPhone application. Milestone 3 adds committed household preferences, deterministic recipe eligibility and explainable ranking, explicit plan reconciliation, and local autofill while preserving the approved Plan, Discover, Recipe details, Saved, and Shopping journeys.
+Weeknight is a native SwiftUI iPhone application. Milestone 4 adds a local TypeScript backend, a validated development recipe catalogue, remote iPhone repositories, and optional server-side AI ranking/week composition while preserving the approved Milestone 1–3 Plan, Discover, Recipe details, Saved, Preferences, and Shopping journeys.
+
+The app remains fully usable on device. AI never determines allergens, dietary safety, canonical prices, ingredient quantities, budget arithmetic, or shopping totals.
+
+## Architecture
+
+```text
+iPhone SwiftUI UI
+       |
+       v
+AppStore + deterministic domain + SwiftData
+       |
+       +---------------------> offline Milestone 3 engine
+       |
+       v
+URLSession remote repository
+       |
+       v
+loopback TypeScript/Fastify backend
+       +--> Zod-validated development catalogue
+       +--> deterministic stub/fallback
+       \--> optional server-only Responses API adapter
+```
+
+See [backend/README.md](backend/README.md) for setup, contracts, privacy details, resilience, environment configuration, and the approval-gated live smoke procedure. The decision boundary is recorded in [ADR 0001](docs/adr/0001-local-backend-and-ai-boundary.md).
+
+No public deployment, production database, production-cleared catalogue, external account creation, or paid service activation occurred in this milestone.
 
 ## Requirements
 
 - Xcode 26.6 (build 17F113), or a compatible newer Xcode
 - iOS 26.5 Simulator runtime for the recorded validation
-- Minimum deployment target: iOS 17.0
+- Minimum iOS deployment target: 17.0
 - Primary validation device: iPhone 17
-- Additional layout validation devices: iPhone SE (3rd generation), iPhone 14, and iPhone 17 Pro Max
+- Previously approved layout devices: iPhone SE (3rd generation), iPhone 14, and iPhone 17 Pro Max
+- Node.js 22 through 25 and npm for the local backend
 
-## Open and run in Xcode
+## Run locally in stub mode
+
+In Terminal, start the local backend:
+
+```sh
+cd /Users/hugo/Desktop/Weeknight/backend
+npm install
+npm start
+```
+
+Then:
 
 1. Open `Weeknight.xcodeproj` in Xcode.
 2. Select the **Weeknight** scheme.
 3. Choose the **iPhone 17** Simulator.
-4. Press **Run** (the triangular play button).
+4. Press **Run**.
 
-No account, network connection, third-party package, or backend is required.
+Keep the backend Terminal window open. Stop it later with Control-C. No account, API key, internet connection, or AI charges are needed in stub mode. If the backend is stopped, Weeknight honestly switches to cached/local behavior and remains usable.
 
-## Command-line build
+## Build and test
+
+Backend:
 
 ```sh
+cd /Users/hugo/Desktop/Weeknight/backend
+npm run typecheck
+npm test
+npm run build
+```
+
+iPhone:
+
+```sh
+cd /Users/hugo/Desktop/Weeknight
 xcodebuild \
   -project Weeknight.xcodeproj \
   -scheme Weeknight \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  clean build
+  clean test
 ```
 
-## Run tests
+All automated backend and iPhone tests use deterministic stubs or mock HTTP responses. They do not read a real key or spend AI tokens.
 
-Run all unit and UI tests from Xcode with **Product → Test**, or use:
+## Recorded Milestone 4 validation
 
-```sh
-xcodebuild \
-  -project Weeknight.xcodeproj \
-  -scheme Weeknight \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
-  test
-```
+Validation on September 1, 2026 passed the backend typecheck/build and 24 backend tests, a clean native build with 52 Swift tests and 18 UI journeys, and a Release Simulator build. The 15 existing Milestone 1–3 UI journeys passed unchanged. See [the validation record](docs/MILESTONE_4_VALIDATION.md) for scenarios, accessibility checks, and evidence.
 
-## Recorded validation
+## Safety and fallback boundary
 
-The completed milestone was validated on September 1, 2026 with Xcode 26.6 and the iOS 26.5 Simulator runtime:
+The iPhone first computes the hard-eligible recipe-ID allow-list using medical-allergen, dietary, and appliance rules. The backend intersects those IDs with its validated catalogue before calling any provider. Provider results use strict schemas and undergo ID, uniqueness, required-day, and budget checks. The iPhone then repeats eligibility and plan validation before committing through the existing domain layer.
 
-- Clean build: passed on iPhone 17
-- Automated tests: 41 unit/store tests plus 15 Milestone 1–3 UI journeys
-- Device range: iPhone SE (3rd generation), iPhone 14, iPhone 17, and iPhone 17 Pro Max
-- Accessibility: native controls and focus behavior, 44-point touch targets, semantic selected/disabled/editing/committing states, VoiceOver announcements, Reduce Motion-aware discovery paging, and a recorded Accessibility Large Dynamic Type Preferences view
-- Evidence: named Simulator screenshots in `artifacts/milestone-3/screenshots/`
+If the provider or backend is disabled, missing, slow, rate-limited, refused, malformed, unsafe, or over budget, Weeknight uses the deterministic Milestone 3 engine. Network responses cannot write derived totals directly.
+
+## Existing preferences, ranking, and autofill
+
+Preferences editors remain draft-and-commit. Medical allergens, dietary restrictions, and unavailable required appliances are hard exclusions. Cooking time remains a hard rule for autofill and an explained ranking caution in Discover. Dislikes, proteins, meal styles, budget fit, week variety, cooking-time fit, and Saved state remain deterministic ranking inputs.
+
+The on-device **Fill the rest for me** engine still evaluates valid combinations for open cooking days, excludes scheduled or hard-ineligible recipes, enforces the time and budget limits, and commits the plan once. Trader Joe's, Aldi, and Safeway still use separate deterministic USD development estimates; unsupported CAD and GBP stores remain unavailable without fake conversion or live-pricing claims.
 
 ## Local persistence
 
-Weeknight uses SwiftData for one versioned local application-state record. Its schema-version-2 JSON payload contains the active week plan (including committed servings), checked shopping ingredient IDs, saved recipe timestamps, recipe notes, and committed `UserPreferences`. Budget, completion, recipe eligibility, Discover order, and shopping totals are never persisted directly; they are recalculated from the restored plan, preferences, and recipe catalogue.
-
-On first launch, the canonical fixture is seeded once. Normal app relaunches preserve approved user state. Schema version 1 migrates to version 2 using the prior plan’s store, budget, cooking days, and servings; an unsupported schema version falls back deterministically to the canonical fixture. `AppSnapshot.currentSchemaVersion` remains the migration boundary for future milestones.
-
-## Preferences, ranking, and autofill
-
-Each Preferences editor works on a draft. **Cancel** or dismissing the sheet discards it; **Save** commits once. Changes that affect planned servings, cooking days, or hard eligibility show a named impact summary first, then update preferences, Plan, budget, and Shopping together.
-
-Medical allergens, dietary restrictions, and unavailable required appliances are hard exclusions. Cooking time is a hard rule only for autofill; Discover may show slower eligible recipes with an explicit caution and lower rank. Dislikes, proteins, meal styles, budget fit, week variety, cooking-time fit, and Saved state affect deterministic ranking. The app never calls AI, a backend, or the network.
-
-**Fill the rest for me** considers every valid combination for open configured days, excludes scheduled and hard-ineligible recipes, enforces the cooking-time limit, stays within the remaining weekly budget when it succeeds, and commits the whole plan once. If no combination works, it leaves the week unchanged and explains which settings to review.
-
-Trader Joe’s, Aldi, and Safeway use separate deterministic USD mock quote multipliers. Canada/CAD and United Kingdom/GBP are shown as unavailable; the prototype does not perform fake currency conversion or claim live supermarket pricing.
+Weeknight uses SwiftData for one versioned local application-state record. Its schema-version-2 payload contains the active week plan (including committed servings), checked shopping IDs, saved recipe timestamps, recipe notes, and committed preferences. Budget, completion, eligibility, Discover order, and shopping totals are recalculated from source state. The remote catalogue has a separate, schema-compatible cache in the app's Caches directory; it is never a replacement for SwiftData user state.
 
 ## Reset the canonical fixture
 
-In the app, open **Preferences** and choose **Reset demo week**. This replaces the one persisted record with the canonical preferences, plan, shopping checks, three initial Saved recipes, and empty notes. Relaunching the app does not reset state.
+In the app, open **Preferences** and choose **Reset demo week**. This replaces the persisted record with the canonical preferences, plan, shopping checks, three initial Saved recipes, and empty notes. It can be used repeatedly; the reset upserts the same single record and does not duplicate data. Relaunching normally preserves state.
 
-Automated runs can pass `--reset-fixture`; repeated use resets the same record without duplication. Mock states are reachable with `--recipe-mode loading|error|empty`, `--shopping-mode loading|error|stale`, `--saved-mode loading|error|empty`, `--saved-no-results`, and `--assignment-fails-once`. Milestone 3 UI validation also uses deterministic local launch states for personalized Discover, hard-rule no results, autofill failure, and opening a named Preferences editor.
+Automated runs can pass `--reset-fixture`; repeated use restores the same canonical record. Existing mock-state flags remain documented by their tests. Use `--backend-enabled` with a reset only for Milestone 4 backend validation; ordinary Milestone 1–3 reset journeys deliberately remain local and deterministic.
 
-The canonical fixture starts with one-person servings; Monday through Friday cooking days; Trader Joe’s USD estimates; an $80.00 budget; a 45-minute maximum; stovetop and oven available; Monday through Wednesday planned; Thursday and Friday open; $35.40 spent; and 3 of 25 shopping items checked. No dietary, allergen, dislike, protein, or meal-style preference is selected.
+The canonical fixture starts with one-person servings; Monday through Friday cooking days; Trader Joe's USD estimates; an $80.00 budget; a 45-minute maximum; stovetop and oven available; Monday through Wednesday planned; Thursday and Friday open; $35.40 spent; and 3 of 25 shopping items checked.
 
 ## Project structure
 
-- `Weeknight/` — SwiftUI application, domain model, fixture repositories, store, design system, and feature views
-- `WeeknightTests/` — domain and store tests
-- `WeeknightUITests/` — canonical device journey
-- `docs/` — authoritative product and implementation documents
-- `design-reference/` — preserved visual and exported interaction references; never linked into the app target
-- `artifacts/milestone-3/screenshots/` — Simulator evidence from Milestone 3
+- `Weeknight/` — native SwiftUI app, domain, SwiftData persistence, local and remote repositories, design system, and views
+- `WeeknightTests/` — domain, store, persistence, and remote-repository tests
+- `WeeknightUITests/` — Milestone 1–4 Simulator journeys
+- `backend/` — local TypeScript service, validated catalogue, provider adapters, and tests
+- `docs/` — authoritative implementation/design documents and architecture decisions
+- `design-reference/` — visual/exported references; never linked into the app target
+- `artifacts/milestone-4/screenshots/` — final Milestone 4 Simulator evidence
+
+## Milestone 4 evidence
+
+The final report records exact build/test counts and Simulator checks. Screenshots cover the backend catalogue, personalized explanations, generated week, safe invalid-output fallback, and backend-unavailable recovery in `artifacts/milestone-4/screenshots/`.
