@@ -161,42 +161,69 @@ struct PlanView: View {
 
 private struct BudgetCard: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let guidance: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack(alignment: .bottom) {
+            if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("ESTIMATED SHOP")
                         .font(.caption.weight(.bold))
                         .tracking(1.3)
                         .foregroundStyle(WeeknightTheme.background.opacity(0.65))
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(store.weeklySpend.formatted())
-                            .font(.system(.largeTitle, design: .rounded, weight: .heavy))
-                            .foregroundStyle(WeeknightTheme.background)
-                        Text("of \(store.plan.budget.formatted())")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(WeeknightTheme.background.opacity(0.58))
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("budget-spent")
-                }
-                Spacer(minLength: 12)
-                VStack(alignment: .trailing, spacing: 3) {
+                    Text("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
+                        .font(.title2.weight(.heavy))
+                        .foregroundStyle(WeeknightTheme.background)
+                        .accessibilityIdentifier("budget-spent")
                     if store.remainingBudget.minorUnits >= 0 {
                         Text("\(store.remainingBudget.formatted()) left")
                             .foregroundStyle(WeeknightTheme.mint)
+                            .accessibilityIdentifier("budget-remaining")
                     } else {
                         Text("\(Money(minorUnits: abs(store.remainingBudget.minorUnits)).formatted()) over")
                             .foregroundStyle(Color(hex: 0xFFB4A5))
+                            .accessibilityIdentifier("budget-remaining")
                     }
                     Text("still to spend")
                         .font(.caption)
                         .foregroundStyle(WeeknightTheme.background.opacity(0.58))
                 }
                 .font(.headline.weight(.bold))
-                .accessibilityIdentifier("budget-remaining")
+            } else {
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("ESTIMATED SHOP")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.3)
+                            .foregroundStyle(WeeknightTheme.background.opacity(0.65))
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(store.weeklySpend.formatted())
+                                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
+                                .foregroundStyle(WeeknightTheme.background)
+                            Text("of \(store.plan.budget.formatted())")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(WeeknightTheme.background.opacity(0.58))
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("budget-spent")
+                    }
+                    Spacer(minLength: 12)
+                    VStack(alignment: .trailing, spacing: 3) {
+                        if store.remainingBudget.minorUnits >= 0 {
+                            Text("\(store.remainingBudget.formatted()) left")
+                                .foregroundStyle(WeeknightTheme.mint)
+                        } else {
+                            Text("\(Money(minorUnits: abs(store.remainingBudget.minorUnits)).formatted()) over")
+                                .foregroundStyle(Color(hex: 0xFFB4A5))
+                        }
+                        Text("still to spend")
+                            .font(.caption)
+                            .foregroundStyle(WeeknightTheme.background.opacity(0.58))
+                    }
+                    .font(.headline.weight(.bold))
+                    .accessibilityIdentifier("budget-remaining")
+                }
             }
             BudgetProgressBar(spent: store.weeklySpend, budget: store.plan.budget)
             Label(guidance, systemImage: store.budgetStatus == .overBudget ? "exclamationmark.triangle.fill" : "circle.fill")

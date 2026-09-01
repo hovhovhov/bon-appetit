@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ShoppingListView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -63,18 +64,15 @@ struct ShoppingListView: View {
 
     private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom) {
+            if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ESTIMATED TOTAL")
                         .font(.caption.weight(.bold))
                         .tracking(1.3)
                         .foregroundStyle(WeeknightTheme.background.opacity(0.64))
                     Text(store.weeklySpend.formatted())
-                        .font(.largeTitle.weight(.heavy))
+                        .font(.title.weight(.heavy))
                         .foregroundStyle(WeeknightTheme.background)
-                }
-                Spacer(minLength: 10)
-                VStack(alignment: .trailing, spacing: 4) {
                     Text("\(store.shoppingProgress.display) items")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(WeeknightTheme.mint)
@@ -82,6 +80,28 @@ struct ShoppingListView: View {
                     Text(store.shoppingProgress.checked == store.shoppingProgress.total ? "shopping complete" : "in the basket")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(WeeknightTheme.background.opacity(0.58))
+                }
+            } else {
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ESTIMATED TOTAL")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.3)
+                            .foregroundStyle(WeeknightTheme.background.opacity(0.64))
+                        Text(store.weeklySpend.formatted())
+                            .font(.largeTitle.weight(.heavy))
+                            .foregroundStyle(WeeknightTheme.background)
+                    }
+                    Spacer(minLength: 10)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("\(store.shoppingProgress.display) items")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(WeeknightTheme.mint)
+                            .accessibilityIdentifier("shopping-list-progress")
+                        Text(store.shoppingProgress.checked == store.shoppingProgress.total ? "shopping complete" : "in the basket")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(WeeknightTheme.background.opacity(0.58))
+                    }
                 }
             }
             GeometryReader { proxy in
@@ -255,4 +275,3 @@ private struct StateMessageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-

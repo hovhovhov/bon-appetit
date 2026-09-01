@@ -12,8 +12,9 @@ final class AppStoreTests: XCTestCase {
         async let second: Void = store.assign(recipe: carbonara, to: .thursday)
         _ = try await (first, second)
 
+        let saveCount = await repository.saveCount
         XCTAssertEqual(store.planMutationCount, 1)
-        XCTAssertEqual(await repository.saveCount, 1)
+        XCTAssertEqual(saveCount, 1)
         XCTAssertEqual(store.plan.slots.first(where: { $0.day == .thursday })?.recipeID, "carbonara")
     }
 
@@ -57,4 +58,3 @@ private actor CountingPlanRepository: PlanRepository {
         self.plan = plan
     }
 }
-

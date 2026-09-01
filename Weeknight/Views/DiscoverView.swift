@@ -3,6 +3,7 @@ import SwiftUI
 struct DiscoverView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedRecipe: Recipe?
 
     var body: some View {
@@ -78,6 +79,7 @@ struct DiscoverView: View {
             .scrollTargetLayout()
         }
         .scrollIndicators(.hidden)
+        .id(store.discoverRecipes.map(\.id).joined(separator: "|"))
         .accessibilityLabel("Recipe discovery feed")
     }
 
@@ -93,25 +95,26 @@ struct DiscoverView: View {
                     .clipShape(Circle())
             }
             .accessibilityLabel("Back to Plan")
-            VStack(alignment: .leading, spacing: 5) {
-                Text("\(store.filledCount) of \(store.totalCount) dinners chosen")
-                    .font(.subheadline.weight(.bold))
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(Color.white.opacity(0.2))
-                        .overlay(alignment: .leading) {
-                            Capsule()
-                                .fill(WeeknightTheme.mint)
-                                .frame(width: proxy.size.width * Double(store.filledCount) / Double(max(1, store.totalCount)))
-                        }
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(store.filledCount) of \(store.totalCount) dinners chosen")
+                    Text("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
+                        .foregroundStyle(WeeknightTheme.mint)
+                    discoverProgressBar
                 }
-                .frame(height: 5)
-            }
-            Spacer(minLength: 4)
-            Text("\(store.weeklySpend.formatted())/\(store.plan.budget.formatted())")
                 .font(.subheadline.weight(.bold))
-                .foregroundStyle(WeeknightTheme.mint)
-                .lineLimit(1)
+            } else {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("\(store.filledCount) of \(store.totalCount) dinners chosen")
+                        .font(.subheadline.weight(.bold))
+                    discoverProgressBar
+                }
+                Spacer(minLength: 4)
+                Text("\(store.weeklySpend.formatted())/\(store.plan.budget.formatted())")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(WeeknightTheme.mint)
+                    .lineLimit(1)
+            }
         }
         .foregroundStyle(Color.white)
         .padding(9)
@@ -122,6 +125,20 @@ struct DiscoverView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(store.filledCount) of \(store.totalCount) dinners chosen, \(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
         .accessibilityIdentifier("discover-progress")
+    }
+
+    private var discoverProgressBar: some View {
+        GeometryReader { proxy in
+            Capsule()
+                .fill(Color.white.opacity(0.2))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(WeeknightTheme.mint)
+                        .frame(width: proxy.size.width * Double(store.filledCount) / Double(max(1, store.totalCount)))
+                }
+        }
+        .frame(height: 5)
+        .accessibilityHidden(true)
     }
 
     private var loadingState: some View {
@@ -241,4 +258,3 @@ private struct RecipeFeedCard: View {
         .accessibilityElement(children: .contain)
     }
 }
-

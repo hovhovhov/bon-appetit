@@ -37,14 +37,6 @@ struct AddToWeekSheet: View {
                         }
                     }
 
-                    projectionCard
-
-                    if case .failure(let message) = commitState {
-                        errorBanner(message)
-                    }
-
-                    confirmationButton
-
                     Button("Cancel") { dismiss() }
                         .font(.headline)
                         .foregroundStyle(WeeknightTheme.primaryText)
@@ -54,6 +46,24 @@ struct AddToWeekSheet: View {
                 .padding(WeeknightTheme.Spacing.gutter)
             }
             .background(WeeknightTheme.background.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 0) {
+                    Divider()
+                    compactProjection
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                        .padding(.top, 10)
+                    if case .failure(let message) = commitState {
+                        errorBanner(message)
+                            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                            .padding(.top, 8)
+                    }
+                    confirmationButton
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                        .padding(.top, 8)
+                        .padding(.bottom, 10)
+                }
+                .background(.ultraThinMaterial)
+            }
             .navigationTitle("Add to your week")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -137,39 +147,40 @@ struct AddToWeekSheet: View {
         .accessibilityIdentifier("day-\(slot.day.rawValue)")
     }
 
-    private var projectionCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
+    private var compactProjection: some View {
+        VStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text("Week after this change")
-                    .font(.subheadline)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(WeeknightTheme.secondaryText)
-                Spacer()
+                Spacer(minLength: 4)
                 Text(preview.map { "\($0.projectedSpend.formatted()) of \(store.plan.budget.formatted())" } ?? "Choose a day")
-                    .font(.headline.weight(.bold))
+                    .font(.subheadline.weight(.bold))
                     .foregroundStyle(WeeknightTheme.primaryText)
                     .accessibilityIdentifier("assignment-preview-spend")
             }
             if let preview {
-                BudgetProgressBar(spent: preview.projectedSpend, budget: store.plan.budget, height: 9)
-                    .background(WeeknightTheme.sand)
-                    .clipShape(Capsule())
-                if preview.isOverBudget {
-                    Label("\(Money(minorUnits: abs(preview.projectedRemaining.minorUnits)).formatted()) over budget", systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(WeeknightTheme.tomato)
-                } else {
-                    Label("\(preview.projectedRemaining.formatted()) remaining", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(WeeknightTheme.bottle)
-                        .accessibilityIdentifier("assignment-preview-remaining")
+                HStack(spacing: 9) {
+                    BudgetProgressBar(spent: preview.projectedSpend, budget: store.plan.budget, height: 7)
+                        .background(WeeknightTheme.sand)
+                        .clipShape(Capsule())
+                    if preview.isOverBudget {
+                        Text("\(Money(minorUnits: abs(preview.projectedRemaining.minorUnits)).formatted()) over")
+                            .foregroundStyle(WeeknightTheme.tomato)
+                    } else {
+                        Text("\(preview.projectedRemaining.formatted()) remaining")
+                            .foregroundStyle(WeeknightTheme.bottle)
+                            .accessibilityIdentifier("assignment-preview-remaining")
+                    }
                 }
+                .font(.caption.weight(.bold))
             } else {
-                Text("Select a day to preview spend, remaining budget, and any replacement.")
-                    .font(.subheadline)
+                Text("Select a day to preview spend and remaining budget.")
+                    .font(.caption)
                     .foregroundStyle(WeeknightTheme.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .font(.subheadline.weight(.semibold))
-        .padding(15)
-        .weeknightCard()
     }
 
     private func errorBanner(_ message: String) -> some View {
@@ -231,4 +242,3 @@ struct AddToWeekSheet: View {
         }
     }
 }
-
