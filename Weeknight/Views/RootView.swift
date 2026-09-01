@@ -27,7 +27,7 @@ struct RootView: View {
             .tag(AppTab.saved)
 
             NavigationStack {
-                PreferencesPreviewView()
+                PreferencesView()
             }
             .tabItem { Label("Preferences", systemImage: "slider.horizontal.3") }
             .tag(AppTab.preferences)

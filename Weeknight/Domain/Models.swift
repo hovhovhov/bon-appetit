@@ -40,6 +40,13 @@ struct Money: Hashable, Codable, Sendable, Comparable, CustomStringConvertible {
         let amount = NSDecimalNumber(value: minorUnits).dividing(by: 100)
         return formatter.string(from: amount) ?? "\(currencyCode) \(amount)"
     }
+
+    func scaled(byBasisPoints basisPoints: Int) -> Money {
+        Money(
+            minorUnits: (minorUnits * basisPoints + 5_000) / 10_000,
+            currencyCode: currencyCode
+        )
+    }
 }
 
 enum Aisle: String, CaseIterable, Codable, Sendable, Identifiable {
@@ -113,6 +120,11 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
     let artwork: ArtworkStyle
     let sourceAttribution: String
     let methodSteps: [String]
+    let dietaryCompatibility: Set<DietaryRestriction>
+    let declaredAllergens: Set<MedicalAllergen>
+    let requiredAppliances: Set<KitchenAppliance>
+    let protein: PreferredProtein
+    let mealStyles: Set<MealStyle>
 
     init(
         id: ID,
@@ -125,7 +137,12 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         ingredients: [RecipeIngredient],
         artwork: ArtworkStyle,
         sourceAttribution: String? = nil,
-        methodSteps: [String] = []
+        methodSteps: [String] = [],
+        dietaryCompatibility: Set<DietaryRestriction> = [],
+        declaredAllergens: Set<MedicalAllergen> = [],
+        requiredAppliances: Set<KitchenAppliance> = [],
+        protein: PreferredProtein = .vegetarian,
+        mealStyles: Set<MealStyle> = []
     ) {
         self.id = id
         self.title = title
@@ -138,6 +155,11 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         self.artwork = artwork
         self.sourceAttribution = sourceAttribution ?? "Weeknight fixture inspired by \(sourceName). Local prototype content; no external photography is included."
         self.methodSteps = methodSteps
+        self.dietaryCompatibility = dietaryCompatibility
+        self.declaredAllergens = declaredAllergens
+        self.requiredAppliances = requiredAppliances
+        self.protein = protein
+        self.mealStyles = mealStyles
     }
 
     var estimatedCost: Money {
@@ -168,6 +190,8 @@ enum Weekday: String, CaseIterable, Codable, Sendable, Identifiable {
     case wednesday = "Wednesday"
     case thursday = "Thursday"
     case friday = "Friday"
+    case saturday = "Saturday"
+    case sunday = "Sunday"
 
     var id: String { rawValue }
     var shortName: String { String(rawValue.prefix(3)) }
@@ -191,8 +215,8 @@ struct WeekPlan: Hashable, Codable, Sendable, Identifiable {
 
     let id: ID
     let weekLabel: String
-    let storeName: String
-    let budget: Money
+    var storeName: String
+    var budget: Money
     var slots: [MealSlot]
     var revision: Int
 }
@@ -245,11 +269,153 @@ struct ShoppingProgress: Hashable, Sendable {
     var display: String { "\(checked) of \(total)" }
 }
 
+enum MarketOption: String, CaseIterable, Codable, Sendable, Identifiable {
+    case unitedStates = "United States · USD"
+    case canada = "Canada · CAD"
+    case unitedKingdom = "United Kingdom · GBP"
+
+    var id: String { rawValue }
+    var isSupported: Bool { self == .unitedStates }
+    var currencyCode: String {
+        switch self {
+        case .unitedStates: "USD"
+        case .canada: "CAD"
+        case .unitedKingdom: "GBP"
+        }
+    }
+}
+
+enum Supermarket: String, CaseIterable, Codable, Sendable, Identifiable {
+    case traderJoes = "Trader Joe's"
+    case aldi = "Aldi"
+    case safeway = "Safeway"
+
+    var id: String { rawValue }
+
+    /// Deterministic local quote-set adjustment relative to the canonical Trader Joe's fixture.
+    var priceBasisPoints: Int {
+        switch self {
+        case .traderJoes: 10_000
+        case .aldi: 9_200
+        case .safeway: 10_800
+        }
+    }
+}
+
+enum DietaryRestriction: String, CaseIterable, Codable, Sendable, Identifiable {
+    case vegetarian = "Vegetarian"
+    case vegan = "Vegan"
+    case pescatarian = "Pescatarian"
+    case glutenFree = "Gluten-free"
+
+    var id: String { rawValue }
+}
+
+enum MedicalAllergen: String, CaseIterable, Codable, Sendable, Identifiable {
+    case milk = "Milk"
+    case egg = "Egg"
+    case fish = "Fish"
+    case wheat = "Wheat"
+    case soy = "Soy"
+    case sesame = "Sesame"
+
+    var id: String { rawValue }
+}
+
+enum KitchenAppliance: String, CaseIterable, Codable, Sendable, Identifiable {
+    case stovetop = "Stovetop"
+    case oven = "Oven"
+    case microwave = "Microwave"
+    case airFryer = "Air fryer"
+    case blender = "Blender"
+
+    var id: String { rawValue }
+    var systemImage: String {
+        switch self {
+        case .stovetop: "flame"
+        case .oven: "oven"
+        case .microwave: "microwave"
+        case .airFryer: "fan"
+        case .blender: "takeoutbag.and.cup.and.straw"
+        }
+    }
+}
+
+enum PreferredProtein: String, CaseIterable, Codable, Sendable, Identifiable {
+    case chicken = "Chicken"
+    case beef = "Beef"
+    case pork = "Pork"
+    case fish = "Fish"
+    case vegetarian = "Vegetarian"
+
+    var id: String { rawValue }
+}
+
+enum MealStyle: String, CaseIterable, Codable, Sendable, Identifiable {
+    case speedy = "Speedy"
+    case healthyComfort = "Healthy comfort"
+    case familyFavorite = "Family favorite"
+    case fakeaway = "Fakeaway"
+    case meatFree = "Meat-free"
+    case proteinPacked = "Protein-packed"
+    case treatNight = "Treat night"
+
+    var id: String { rawValue }
+}
+
 struct UserPreferences: Hashable, Codable, Sendable {
-    let storeName: String
-    let householdSize: Int
-    let cookingDays: [Weekday]
-    let weeklyBudget: Money
+    static let minimumHouseholdSize = 1
+    static let maximumHouseholdSize = 8
+    static let minimumBudgetMinorUnits = 4_000
+    static let maximumBudgetMinorUnits = 24_000
+    static let budgetStepMinorUnits = 1_000
+    static let minimumCookingMinutes = 15
+    static let maximumCookingMinutes = 60
+    static let cookingMinutesStep = 5
+
+    var market: MarketOption
+    var supermarket: Supermarket
+    var householdSize: Int
+    var cookingDays: [Weekday]
+    var weeklyBudget: Money
+    var maximumCookingMinutes: Int
+    var dietaryRestrictions: Set<DietaryRestriction>
+    var medicalAllergens: Set<MedicalAllergen>
+    var dislikedIngredientIDs: Set<Ingredient.ID>
+    var preferredProteins: Set<PreferredProtein>
+    var preferredMealStyles: Set<MealStyle>
+    var availableAppliances: Set<KitchenAppliance>
+
+    static var canonical: UserPreferences {
+        UserPreferences(
+            market: .unitedStates,
+            supermarket: .traderJoes,
+            householdSize: 1,
+            cookingDays: [.monday, .tuesday, .wednesday, .thursday, .friday],
+            weeklyBudget: Money(minorUnits: 8_000),
+            maximumCookingMinutes: 45,
+            dietaryRestrictions: [],
+            medicalAllergens: [],
+            dislikedIngredientIDs: [],
+            preferredProteins: [],
+            preferredMealStyles: [],
+            availableAppliances: [.stovetop, .oven]
+        )
+    }
+
+    var storeName: String { supermarket.rawValue }
+
+    mutating func normalize() {
+        if !market.isSupported { market = .unitedStates }
+        householdSize = min(Self.maximumHouseholdSize, max(Self.minimumHouseholdSize, householdSize))
+        weeklyBudget = Money(
+            minorUnits: min(Self.maximumBudgetMinorUnits, max(Self.minimumBudgetMinorUnits, weeklyBudget.minorUnits)),
+            currencyCode: market.currencyCode
+        )
+        maximumCookingMinutes = min(Self.maximumCookingMinutes, max(Self.minimumCookingMinutes, maximumCookingMinutes))
+        cookingDays = Weekday.allCases.filter(Set(cookingDays).contains)
+        if cookingDays.isEmpty { cookingDays = [.monday] }
+    }
 }
 
 struct SavedRecipeRecord: Hashable, Codable, Sendable, Identifiable {
@@ -259,27 +425,151 @@ struct SavedRecipeRecord: Hashable, Codable, Sendable, Identifiable {
 }
 
 struct AppSnapshot: Hashable, Codable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
 
     var schemaVersion: Int
     var plan: WeekPlan
     var checkedIngredientIDs: Set<Ingredient.ID>
     var savedRecipeRecords: [SavedRecipeRecord]
     var recipeNotes: [Recipe.ID: String]
+    var preferences: UserPreferences
 
     init(
         schemaVersion: Int = currentSchemaVersion,
         plan: WeekPlan,
         checkedIngredientIDs: Set<Ingredient.ID>,
         savedRecipeRecords: [SavedRecipeRecord],
-        recipeNotes: [Recipe.ID: String]
+        recipeNotes: [Recipe.ID: String],
+        preferences: UserPreferences = .canonical
     ) {
         self.schemaVersion = schemaVersion
         self.plan = plan
         self.checkedIngredientIDs = checkedIngredientIDs
         self.savedRecipeRecords = savedRecipeRecords
         self.recipeNotes = recipeNotes
+        self.preferences = preferences
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, plan, checkedIngredientIDs, savedRecipeRecords, recipeNotes, preferences
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        let decodedPlan = try values.decode(WeekPlan.self, forKey: .plan)
+        plan = decodedPlan
+        checkedIngredientIDs = try values.decodeIfPresent(Set<Ingredient.ID>.self, forKey: .checkedIngredientIDs) ?? []
+        savedRecipeRecords = try values.decodeIfPresent([SavedRecipeRecord].self, forKey: .savedRecipeRecords) ?? []
+        recipeNotes = try values.decodeIfPresent([Recipe.ID: String].self, forKey: .recipeNotes) ?? [:]
+        preferences = try values.decodeIfPresent(UserPreferences.self, forKey: .preferences) ?? {
+            var migrated = UserPreferences.canonical
+            migrated.weeklyBudget = decodedPlan.budget
+            migrated.cookingDays = decodedPlan.slots.map(\.day)
+            migrated.supermarket = Supermarket(rawValue: decodedPlan.storeName) ?? .traderJoes
+            return migrated
+        }()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(schemaVersion, forKey: .schemaVersion)
+        try values.encode(plan, forKey: .plan)
+        try values.encode(checkedIngredientIDs, forKey: .checkedIngredientIDs)
+        try values.encode(savedRecipeRecords, forKey: .savedRecipeRecords)
+        try values.encode(recipeNotes, forKey: .recipeNotes)
+        try values.encode(preferences, forKey: .preferences)
+    }
+}
+
+struct EligibilityReason: Hashable, Sendable, Identifiable {
+    enum Kind: String, Hashable, Sendable {
+        case medicalAllergen
+        case dietaryRestriction
+        case unavailableAppliance
+        case maximumCookingTime
+    }
+
+    var id: String { "\(kind.rawValue)-\(message)" }
+    let kind: Kind
+    let message: String
+}
+
+struct RecipeEligibility: Hashable, Sendable {
+    let recipeID: Recipe.ID
+    let hardReasons: [EligibilityReason]
+    let exceedsPreferredCookingTime: Bool
+
+    var isEligible: Bool { hardReasons.isEmpty }
+}
+
+struct RankedRecipe: Hashable, Sendable, Identifiable {
+    var id: Recipe.ID { recipe.id }
+    let recipe: Recipe
+    let score: Int
+    let explanations: [String]
+    let cautions: [String]
+}
+
+struct ScheduledPreferenceConflict: Hashable, Sendable, Identifiable {
+    var id: Weekday { day }
+    let day: Weekday
+    let recipe: Recipe
+    let reasons: [EligibilityReason]
+}
+
+struct PreferenceUpdatePreview: Hashable, Sendable {
+    let draft: UserPreferences
+    let projectedPlan: WeekPlan
+    let conflicts: [ScheduledPreferenceConflict]
+    let removedFilledSlots: [(day: Weekday, recipeTitle: String)]
+    let addedDays: [Weekday]
+    let removedDays: [Weekday]
+    let servingChangeCount: Int
+    let currentSpend: Money
+    let projectedSpend: Money
+    let currentShoppingItemCount: Int
+    let projectedShoppingItemCount: Int
+    let shoppingChangeCount: Int
+
+    var requiresConfirmation: Bool {
+        !conflicts.isEmpty || !addedDays.isEmpty || !removedDays.isEmpty || servingChangeCount > 0
+    }
+
+    static func == (lhs: PreferenceUpdatePreview, rhs: PreferenceUpdatePreview) -> Bool {
+        lhs.draft == rhs.draft
+            && lhs.projectedPlan == rhs.projectedPlan
+            && lhs.conflicts == rhs.conflicts
+            && lhs.removedFilledSlots.map { "\($0.day.rawValue):\($0.recipeTitle)" } == rhs.removedFilledSlots.map { "\($0.day.rawValue):\($0.recipeTitle)" }
+            && lhs.addedDays == rhs.addedDays
+            && lhs.removedDays == rhs.removedDays
+            && lhs.servingChangeCount == rhs.servingChangeCount
+            && lhs.currentSpend == rhs.currentSpend
+            && lhs.projectedSpend == rhs.projectedSpend
+            && lhs.currentShoppingItemCount == rhs.currentShoppingItemCount
+            && lhs.projectedShoppingItemCount == rhs.projectedShoppingItemCount
+            && lhs.shoppingChangeCount == rhs.shoppingChangeCount
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(draft)
+        hasher.combine(projectedPlan)
+        hasher.combine(conflicts)
+        removedFilledSlots.forEach { hasher.combine($0.day); hasher.combine($0.recipeTitle) }
+        hasher.combine(addedDays)
+        hasher.combine(removedDays)
+        hasher.combine(servingChangeCount)
+        hasher.combine(currentSpend)
+        hasher.combine(projectedSpend)
+        hasher.combine(currentShoppingItemCount)
+        hasher.combine(projectedShoppingItemCount)
+        hasher.combine(shoppingChangeCount)
+    }
+}
+
+enum AutofillOutcome: Hashable, Sendable {
+    case success(plan: WeekPlan, assignments: [ShoppingContribution], projectedSpend: Money)
+    case unable(message: String, suggestions: [String])
 }
 
 struct RecipeServingDraft: Hashable, Sendable {

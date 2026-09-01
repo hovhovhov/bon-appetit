@@ -85,6 +85,10 @@ struct RecipeDetailsView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 hero(recipe)
+                if !store.eligibility(for: recipe).isEligible {
+                    eligibilityWarning(recipe)
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                }
                 overview(recipe)
                 servingEditor(recipe)
                 ingredients(recipe)
@@ -112,6 +116,29 @@ struct RecipeDetailsView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+    }
+
+    private func eligibilityWarning(_ recipe: Recipe) -> some View {
+        let result = store.eligibility(for: recipe)
+        return VStack(alignment: .leading, spacing: 8) {
+            Label(
+                scheduledSlot == nil ? "Not eligible for your current setup" : "This planned meal conflicts with your setup",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.headline.weight(.bold))
+            ForEach(result.hardReasons) { reason in
+                Text(reason.message).font(.subheadline)
+            }
+            Text("Weeknight cannot describe this recipe as safe. Verify ingredient labels and allergen information yourself.")
+                .font(.footnote.weight(.semibold))
+        }
+        .foregroundStyle(Color(hex: 0x8C2A17))
+        .padding(15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: 0xFCEAE4))
+        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("details-eligibility-warning")
     }
 
     private func hero(_ recipe: Recipe) -> some View {
@@ -186,13 +213,13 @@ struct RecipeDetailsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     metric("Time", value: "\(recipe.activeMinutes) min", icon: "clock")
                     metric("Servings", value: "\(servingDraft.value)", icon: "person.2")
-                    metric("Estimated cost", value: recipe.estimatedCost(for: servingDraft.value).formatted(), icon: "basket")
+                    metric("Estimated cost", value: store.estimatedCost(for: recipe, servings: servingDraft.value).formatted(), icon: "basket")
                 }
             } else {
                 HStack(alignment: .top, spacing: 12) {
                     metric("Time", value: "\(recipe.activeMinutes) min", icon: "clock")
                     metric("Servings", value: "\(servingDraft.value)", icon: "person.2")
-                    metric("Est. cost", value: recipe.estimatedCost(for: servingDraft.value).formatted(), icon: "basket")
+                    metric("Est. cost", value: store.estimatedCost(for: recipe, servings: servingDraft.value).formatted(), icon: "basket")
                 }
             }
             FlowLayout(spacing: 7) {
@@ -259,7 +286,7 @@ struct RecipeDetailsView: View {
 
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text(recipe.estimatedCost(for: servingDraft.value).formatted())
+                    Text(store.estimatedCost(for: recipe, servings: servingDraft.value).formatted())
                         .font(.title3.weight(.bold))
                         .foregroundStyle(WeeknightTheme.bottle)
                         .accessibilityIdentifier("servings-cost-preview")
@@ -434,6 +461,17 @@ struct RecipeDetailsView: View {
                 .buttonStyle(ForestActionButtonStyle())
                 .disabled(isCommitting)
                 .accessibilityIdentifier("swap-meal")
+                if !store.eligibility(for: recipe).isEligible {
+                    Button(role: .destructive) {
+                        clearScheduledMeal(day: scheduledSlot.day)
+                    } label: {
+                        Label("Clear \(scheduledSlot.day.rawValue)’s meal", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+                    .disabled(isCommitting)
+                    .accessibilityIdentifier("clear-conflicting-meal")
+                }
             } else {
                 Button {
                     showsAddSheet = true
@@ -441,6 +479,8 @@ struct RecipeDetailsView: View {
                     Label("Add \(servingDraft.value) serving\(servingDraft.value == 1 ? "" : "s") to week", systemImage: "plus")
                 }
                 .buttonStyle(PrimaryActionButtonStyle())
+                .disabled(isCommitting || !store.eligibility(for: recipe).isEligible)
+                .opacity(store.eligibility(for: recipe).isEligible ? 1 : 0.45)
                 .accessibilityIdentifier("details-add-to-week")
             }
         }
@@ -448,6 +488,19 @@ struct RecipeDetailsView: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
+    }
+
+    private func clearScheduledMeal(day: Weekday) {
+        guard !isCommitting else { return }
+        commitState = .committing
+        Task {
+            do {
+                try await store.clearMeal(on: day)
+                dismiss()
+            } catch {
+                commitState = .failure(error.localizedDescription)
+            }
+        }
     }
 
     private func updateScheduledServings(day: Weekday) {
@@ -484,10 +537,7 @@ struct SwapMealSheet: View {
     private var currentSlot: MealSlot? { store.plan.slots.first(where: { $0.day == day }) }
     private var currentRecipe: Recipe? { currentSlot.flatMap(store.recipe(for:)) }
     private var candidates: [Recipe] {
-        let otherScheduled = Set(store.plan.slots.filter { $0.day != day }.compactMap(\.recipeID))
-        return store.recipesForCalculations.filter { recipe in
-            recipe.id != currentRecipe?.id && !otherScheduled.contains(recipe.id)
-        }
+        store.eligibleRecipesForReplacement(on: day)
     }
     private var selectedRecipe: Recipe? { selectedRecipeID.flatMap { store.recipeLookup[$0] } }
     private var isCommitting: Bool { commitState == .committing }
@@ -561,7 +611,7 @@ struct SwapMealSheet: View {
                     Text(recipe.title)
                         .font(.headline.weight(.bold))
                         .foregroundStyle(WeeknightTheme.primaryText)
-                    Text("\(recipe.activeMinutes)m · serves \(servings) · \(recipe.estimatedCost(for: servings).formatted())")
+                    Text("\(recipe.activeMinutes)m · serves \(servings) · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(WeeknightTheme.secondaryText)
                 }

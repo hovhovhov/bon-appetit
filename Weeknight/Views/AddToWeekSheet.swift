@@ -95,7 +95,7 @@ struct AddToWeekSheet: View {
                 Text(recipe.title)
                     .font(.headline.weight(.bold))
                     .foregroundStyle(WeeknightTheme.primaryText)
-                Text("\(recipe.activeMinutes)m · serves \(servings) · \(recipe.estimatedCost(for: servings).formatted())")
+                Text("\(recipe.activeMinutes)m · serves \(servings) · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(WeeknightTheme.secondaryText)
             }

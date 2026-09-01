@@ -45,7 +45,11 @@ enum WeeknightFixture {
                 "Cook the rice until tender, then cover and keep warm.",
                 "Brown the chicken in a wide pan, add broccoli, garlic, soy and honey, and simmer until glossy and cooked through.",
                 "Spoon over the rice and finish with spring onions and sesame seeds.",
-            ]
+            ],
+            declaredAllergens: [.soy, .sesame],
+            requiredAppliances: [.stovetop],
+            protein: .chicken,
+            mealStyles: [.fakeaway, .proteinPacked]
         ),
         Recipe(
             id: "chilli",
@@ -71,7 +75,12 @@ enum WeeknightFixture {
                 "Soften the onion and pepper, then brown the beef mince.",
                 "Stir in chipotle and cumin, add tomatoes and beans, and simmer until thick.",
                 "Serve with rice and a spoonful of sour cream.",
-            ]
+            ],
+            dietaryCompatibility: [.glutenFree],
+            declaredAllergens: [.milk],
+            requiredAppliances: [.stovetop],
+            protein: .beef,
+            mealStyles: [.healthyComfort, .familyFavorite]
         ),
         Recipe(
             id: "stirfry",
@@ -98,7 +107,12 @@ enum WeeknightFixture {
                 "Soak or cook the noodles according to the packet, then drain well.",
                 "Crisp the tofu, then stir-fry the vegetables with ginger and garlic.",
                 "Toss everything with soy, sesame oil and lime; top with crispy shallots.",
-            ]
+            ],
+            dietaryCompatibility: [.vegetarian, .vegan, .pescatarian],
+            declaredAllergens: [.soy, .sesame],
+            requiredAppliances: [.stovetop],
+            protein: .vegetarian,
+            mealStyles: [.speedy, .meatFree]
         ),
         Recipe(
             id: "carbonara",
@@ -121,7 +135,11 @@ enum WeeknightFixture {
                 "Cook the spaghetti in salted water and reserve a mug of pasta water.",
                 "Crisp the pancetta while whisking the eggs, pecorino, parmesan and black pepper in a bowl.",
                 "Off the heat, toss hot pasta with the egg mixture and enough pasta water to make a silky sauce.",
-            ]
+            ],
+            declaredAllergens: [.wheat, .egg, .milk],
+            requiredAppliances: [.stovetop],
+            protein: .pork,
+            mealStyles: [.speedy, .familyFavorite]
         ),
         Recipe(
             id: "curry",
@@ -148,7 +166,11 @@ enum WeeknightFixture {
                 "Soften the onion, then add garlic, ginger and curry powder until fragrant.",
                 "Brown the chicken, add tomatoes and coconut milk, and simmer until the chicken is cooked through.",
                 "Fold in the spinach and serve with basmati rice and coriander.",
-            ]
+            ],
+            dietaryCompatibility: [.glutenFree],
+            requiredAppliances: [.stovetop],
+            protein: .chicken,
+            mealStyles: [.healthyComfort, .familyFavorite]
         ),
         Recipe(
             id: "caesar",
@@ -172,7 +194,11 @@ enum WeeknightFixture {
                 "Char the chicken until golden and cooked through, then rest and slice.",
                 "Toast the sourdough and whisk a dressing from anchovy, egg, lemon and parmesan.",
                 "Toss the romaine with dressing and croutons, then top with chicken.",
-            ]
+            ],
+            declaredAllergens: [.milk, .egg, .fish, .wheat],
+            requiredAppliances: [.stovetop],
+            protein: .chicken,
+            mealStyles: [.proteinPacked]
         ),
         Recipe(
             id: "chopped",
@@ -198,7 +224,11 @@ enum WeeknightFixture {
                 "Chop the cucumber, tomatoes, onion and dill into bite-sized pieces.",
                 "Drain the chickpeas and toss with the vegetables, olives and sunflower seeds.",
                 "Dress with red wine vinegar, fold in the feta, and season to taste.",
-            ]
+            ],
+            dietaryCompatibility: [.vegetarian, .pescatarian, .glutenFree],
+            declaredAllergens: [.milk],
+            protein: .vegetarian,
+            mealStyles: [.speedy, .meatFree]
         ),
         Recipe(
             id: "steak",
@@ -225,7 +255,11 @@ enum WeeknightFixture {
                 "Cut the potatoes into fries and roast until crisp.",
                 "Mix parsley, coriander, garlic, vinegar, chilli and olive oil for the chimichurri.",
                 "Sear the steak to your preferred doneness, rest it, then serve with fries, rocket and chimichurri.",
-            ]
+            ],
+            dietaryCompatibility: [.glutenFree],
+            requiredAppliances: [.stovetop, .oven],
+            protein: .beef,
+            mealStyles: [.treatNight, .proteinPacked]
         ),
     ]
 
@@ -261,14 +295,10 @@ enum WeeknightFixture {
             plan: initialPlan,
             checkedIngredientIDs: initialCheckedIngredientIDs,
             savedRecipeRecords: initialSavedRecipeRecords,
-            recipeNotes: [:]
+            recipeNotes: [:],
+            preferences: preferences
         )
     }
 
-    static let preferences = UserPreferences(
-        storeName: "Trader Joe's",
-        householdSize: 1,
-        cookingDays: Weekday.allCases,
-        weeklyBudget: money(8_000)
-    )
+    static let preferences = UserPreferences.canonical
 }

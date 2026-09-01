@@ -17,10 +17,13 @@ final class AppStore {
     private(set) var checkedIngredientIDs: Set<Ingredient.ID>
     private(set) var savedRecipeRecords: [SavedRecipeRecord]
     private(set) var recipeNotes: [Recipe.ID: String]
+    private(set) var preferences: UserPreferences
     private(set) var recipeMode: RepositoryMode
     var shoppingMode: RepositoryMode
     var savedMode: RepositoryMode
     private(set) var isAssigning = false
+    private(set) var isSavingPreferences = false
+    private(set) var isAutofilling = false
     private(set) var planMutationCount = 0
     private(set) var persistenceErrorMessage: String?
     var confirmationMessage: String?
@@ -46,7 +49,21 @@ final class AppStore {
         let persistence = persistence ?? (arguments.isEmpty
             ? InMemoryAppStatePersistence()
             : AppStatePersistenceFactory.makeDefault())
-        let canonical = WeeknightFixture.canonicalSnapshot
+        var canonical = WeeknightFixture.canonicalSnapshot
+        if arguments.contains("--m3-conflict") {
+            canonical.preferences.medicalAllergens = [.soy]
+        }
+        if arguments.contains("--m3-no-results") {
+            canonical.preferences.dietaryRestrictions = [.vegan]
+        }
+        if arguments.contains("--m3-personalized") {
+            canonical.preferences.preferredProteins = [.pork]
+            canonical.preferences.preferredMealStyles = [.speedy]
+        }
+        if arguments.contains("--m3-unable-autofill") {
+            canonical.preferences.weeklyBudget = Money(minorUnits: 4_000)
+            canonical.plan.budget = Money(minorUnits: 4_000)
+        }
 
         let snapshot: AppSnapshot
         var persistenceErrorMessage: String?
@@ -71,6 +88,7 @@ final class AppStore {
         self.checkedIngredientIDs = snapshot.checkedIngredientIDs
         self.savedRecipeRecords = snapshot.savedRecipeRecords
         self.recipeNotes = snapshot.recipeNotes
+        self.preferences = snapshot.preferences
         self.recipeMode = recipeMode
         self.shoppingMode = shoppingMode
         self.savedMode = savedMode
@@ -80,22 +98,46 @@ final class AppStore {
         self.shoppingRepository = shoppingRepository
         self.persistence = persistence
         self.now = now
+        if arguments.contains("--start-preferences") {
+            self.selectedTab = .preferences
+        } else if arguments.contains("--start-discover") {
+            self.selectedTab = .discover
+        }
     }
 
     var recipeLookup: [Recipe.ID: Recipe] { Planning.recipesByID(recipesForCalculations) }
     var recipesForCalculations: [Recipe] { WeeknightFixture.recipes }
     var filledCount: Int { Planning.filledSlots(in: plan).count }
     var totalCount: Int { plan.slots.count }
-    var weeklySpend: Money { Planning.weeklySpend(plan: plan, recipes: recipesForCalculations) }
-    var remainingBudget: Money { Planning.remainingBudget(plan: plan, recipes: recipesForCalculations) }
-    var budgetStatus: BudgetStatus { Planning.budgetStatus(plan: plan, recipes: recipesForCalculations) }
+    var weeklySpend: Money {
+        Planning.weeklySpend(
+            plan: plan,
+            recipes: recipesForCalculations,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
+    var remainingBudget: Money {
+        Planning.remainingBudget(
+            plan: plan,
+            recipes: recipesForCalculations,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
+    var budgetStatus: BudgetStatus {
+        Planning.budgetStatus(
+            plan: plan,
+            recipes: recipesForCalculations,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
     var savedCount: Int { savedRecipeRecords.count }
 
     var shoppingItems: [ShoppingListItem] {
         Planning.shoppingItems(
             plan: plan,
             recipes: recipesForCalculations,
-            checkedIngredientIDs: checkedIngredientIDs
+            checkedIngredientIDs: checkedIngredientIDs,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
         )
     }
 
@@ -103,9 +145,21 @@ final class AppStore {
         Planning.shoppingProgress(items: shoppingItems)
     }
 
+    var rankedDiscoverRecipes: [RankedRecipe] {
+        Personalization.rankedDiscoverRecipes(
+            recipes: recipes,
+            plan: plan,
+            preferences: preferences,
+            savedRecipeIDs: Set(savedRecipeRecords.map(\.recipeID))
+        )
+    }
+
     var discoverRecipes: [Recipe] {
-        let used = Set(plan.slots.compactMap(\.recipeID))
-        return recipes.filter { !used.contains($0.id) }
+        rankedDiscoverRecipes.map(\.recipe)
+    }
+
+    var scheduledPreferenceConflicts: [ScheduledPreferenceConflict] {
+        Personalization.conflicts(in: plan, recipes: recipesForCalculations, preferences: preferences)
     }
 
     var recentlySavedRecipes: [Recipe] {
@@ -129,8 +183,36 @@ final class AppStore {
             servings: servings,
             to: day,
             in: plan,
-            recipes: recipesForCalculations
+            recipes: recipesForCalculations,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
         )
+    }
+
+    func estimatedCost(for recipe: Recipe, servings: Int? = nil) -> Money {
+        recipe.estimatedCost(for: servings ?? recipe.servings)
+            .scaled(byBasisPoints: preferences.supermarket.priceBasisPoints)
+    }
+
+    func eligibility(for recipe: Recipe) -> RecipeEligibility {
+        Personalization.eligibility(of: recipe, preferences: preferences)
+    }
+
+    func ranking(for recipeID: Recipe.ID) -> RankedRecipe? {
+        rankedDiscoverRecipes.first(where: { $0.id == recipeID })
+    }
+
+    func conflict(for day: Weekday) -> ScheduledPreferenceConflict? {
+        scheduledPreferenceConflicts.first(where: { $0.day == day })
+    }
+
+    func eligibleRecipesForReplacement(on day: Weekday) -> [Recipe] {
+        let currentID = plan.slots.first(where: { $0.day == day })?.recipeID
+        let scheduledElsewhere = Set(plan.slots.filter { $0.day != day }.compactMap(\.recipeID))
+        return recipesForCalculations.filter { recipe in
+            recipe.id != currentID
+                && !scheduledElsewhere.contains(recipe.id)
+                && eligibility(for: recipe).isEligible
+        }
     }
 
     func isSaved(_ recipeID: Recipe.ID) -> Bool {
@@ -201,10 +283,12 @@ final class AppStore {
         let selectedServings = servings ?? recipe.servings
         let updated = Planning.assigning(recipeID: recipe.id, servings: selectedServings, to: day, in: plan)
         guard updated != plan else { return }
+        guard eligibility(for: recipe).isEligible else { throw PreferenceCommitError.recipeIneligible }
+        let reconciledChecks = validCheckedIDs(for: updated)
         try await planRepository.savePlan(updated)
-        try persistence.save(snapshot(plan: updated))
+        try persistence.save(snapshot(plan: updated, checkedIngredientIDs: reconciledChecks))
         plan = updated
-        reconcileCheckedItems()
+        checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
         confirmationMessage = "\(recipe.title) added to \(day.rawValue). The week and shopping list are updated."
     }
@@ -216,10 +300,11 @@ final class AppStore {
 
         let updated = Planning.updatingServings(to: servings, on: day, in: plan)
         guard updated != plan else { return }
+        let reconciledChecks = validCheckedIDs(for: updated)
         try await planRepository.savePlan(updated)
-        try persistence.save(snapshot(plan: updated))
+        try persistence.save(snapshot(plan: updated, checkedIngredientIDs: reconciledChecks))
         plan = updated
-        reconcileCheckedItems()
+        checkedIngredientIDs = reconciledChecks
         planMutationCount += 1
         confirmationMessage = "Servings updated. The plan, budget, and shopping list now agree."
     }
@@ -284,6 +369,84 @@ final class AppStore {
         shoppingMode = await shoppingRepository.retry()
     }
 
+    func previewPreferenceUpdate(_ draft: UserPreferences) -> PreferenceUpdatePreview {
+        Personalization.previewPreferenceUpdate(
+            from: preferences,
+            to: draft,
+            plan: plan,
+            recipes: recipesForCalculations,
+            checkedIngredientIDs: checkedIngredientIDs
+        )
+    }
+
+    func commitPreferences(_ draft: UserPreferences) async throws {
+        guard !isSavingPreferences else { return }
+        isSavingPreferences = true
+        defer { isSavingPreferences = false }
+
+        let preview = previewPreferenceUpdate(draft)
+        let didChangePlan = preview.projectedPlan != plan
+        let reconciledChecks = validCheckedIDs(
+            for: preview.projectedPlan,
+            preferences: preview.draft
+        )
+        if preview.projectedPlan != plan {
+            try await planRepository.savePlan(preview.projectedPlan)
+        }
+        try persistence.save(
+            snapshot(
+                plan: preview.projectedPlan,
+                checkedIngredientIDs: reconciledChecks,
+                preferences: preview.draft
+            )
+        )
+        plan = preview.projectedPlan
+        preferences = preview.draft
+        checkedIngredientIDs = reconciledChecks
+        persistenceErrorMessage = nil
+        if didChangePlan { planMutationCount += 1 }
+        confirmationMessage = "Preferences saved. Your plan and shopping list now agree."
+    }
+
+    func clearMeal(on day: Weekday) async throws {
+        guard !isAssigning else { return }
+        let updated = Planning.clearing(day: day, in: plan)
+        guard updated != plan else { return }
+        isAssigning = true
+        defer { isAssigning = false }
+        let reconciledChecks = validCheckedIDs(for: updated)
+        try await planRepository.savePlan(updated)
+        try persistence.save(snapshot(plan: updated, checkedIngredientIDs: reconciledChecks))
+        plan = updated
+        checkedIngredientIDs = reconciledChecks
+        planMutationCount += 1
+        confirmationMessage = "\(day.rawValue)’s meal was cleared. The shopping list is updated."
+    }
+
+    func fillOpenDays() async throws -> AutofillOutcome {
+        guard !isAutofilling else {
+            return .unable(message: "Weeknight is already filling your open days.", suggestions: [])
+        }
+        isAutofilling = true
+        defer { isAutofilling = false }
+
+        let outcome = Personalization.autofill(
+            plan: plan,
+            recipes: recipesForCalculations,
+            preferences: preferences,
+            savedRecipeIDs: Set(savedRecipeRecords.map(\.recipeID))
+        )
+        guard case .success(let updated, let assignments, let projectedSpend) = outcome else { return outcome }
+        let reconciledChecks = validCheckedIDs(for: updated)
+        try await planRepository.savePlan(updated)
+        try persistence.save(snapshot(plan: updated, checkedIngredientIDs: reconciledChecks))
+        plan = updated
+        checkedIngredientIDs = reconciledChecks
+        planMutationCount += 1
+        confirmationMessage = "Open days filled. The plan and shopping list are ready."
+        return .success(plan: updated, assignments: assignments, projectedSpend: projectedSpend)
+    }
+
     func resetFixture() {
         let canonical = WeeknightFixture.canonicalSnapshot
         do {
@@ -297,6 +460,7 @@ final class AppStore {
         checkedIngredientIDs = canonical.checkedIngredientIDs
         savedRecipeRecords = canonical.savedRecipeRecords
         recipeNotes = canonical.recipeNotes
+        preferences = canonical.preferences
         recipeMode = .ready
         shoppingMode = .ready
         savedMode = .ready
@@ -305,29 +469,46 @@ final class AppStore {
         planMutationCount = 0
     }
 
-    private func reconcileCheckedItems() {
+    private func validCheckedIDs(
+        for plan: WeekPlan,
+        preferences preferencesOverride: UserPreferences? = nil
+    ) -> Set<Ingredient.ID> {
+        let activePreferences = preferencesOverride ?? preferences
         let validIDs = Set(
             Planning.shoppingItems(
                 plan: plan,
                 recipes: recipesForCalculations,
-                checkedIngredientIDs: []
+                checkedIngredientIDs: [],
+                priceBasisPoints: activePreferences.supermarket.priceBasisPoints
             ).map(\.id)
         )
-        checkedIngredientIDs.formIntersection(validIDs)
-        try? persistence.save(snapshot())
+        return checkedIngredientIDs.intersection(validIDs)
     }
 
-    private func snapshot(plan planOverride: WeekPlan? = nil) -> AppSnapshot {
+    private func snapshot(
+        plan planOverride: WeekPlan? = nil,
+        checkedIngredientIDs checkedOverride: Set<Ingredient.ID>? = nil,
+        preferences preferencesOverride: UserPreferences? = nil
+    ) -> AppSnapshot {
         AppSnapshot(
             plan: planOverride ?? plan,
-            checkedIngredientIDs: checkedIngredientIDs,
+            checkedIngredientIDs: checkedOverride ?? checkedIngredientIDs,
             savedRecipeRecords: savedRecipeRecords,
-            recipeNotes: recipeNotes
+            recipeNotes: recipeNotes,
+            preferences: preferencesOverride ?? preferences
         )
     }
 
     private static func mode(after flag: String, in arguments: [String]) -> RepositoryMode? {
         guard let index = arguments.firstIndex(of: flag), arguments.indices.contains(index + 1) else { return nil }
         return RepositoryMode(rawValue: arguments[index + 1])
+    }
+}
+
+enum PreferenceCommitError: LocalizedError {
+    case recipeIneligible
+
+    var errorDescription: String? {
+        "This recipe conflicts with a hard preference. Review the warning before adding it."
     }
 }

@@ -13,20 +13,20 @@ enum Planning {
         plan.slots.filter { $0.recipeID == nil }
     }
 
-    static func weeklySpend(plan: WeekPlan, recipes: [Recipe]) -> Money {
+    static func weeklySpend(plan: WeekPlan, recipes: [Recipe], priceBasisPoints: Int = 10_000) -> Money {
         let lookup = recipesByID(recipes)
         return plan.slots.reduce(.zero(currencyCode: plan.budget.currencyCode)) { total, slot in
             guard let recipeID = slot.recipeID, let recipe = lookup[recipeID] else { return total }
-            return total + recipe.estimatedCost(for: slot.servings)
+            return total + recipe.estimatedCost(for: slot.servings).scaled(byBasisPoints: priceBasisPoints)
         }
     }
 
-    static func remainingBudget(plan: WeekPlan, recipes: [Recipe]) -> Money {
-        plan.budget - weeklySpend(plan: plan, recipes: recipes)
+    static func remainingBudget(plan: WeekPlan, recipes: [Recipe], priceBasisPoints: Int = 10_000) -> Money {
+        plan.budget - weeklySpend(plan: plan, recipes: recipes, priceBasisPoints: priceBasisPoints)
     }
 
-    static func budgetStatus(plan: WeekPlan, recipes: [Recipe]) -> BudgetStatus {
-        let spent = weeklySpend(plan: plan, recipes: recipes).minorUnits
+    static func budgetStatus(plan: WeekPlan, recipes: [Recipe], priceBasisPoints: Int = 10_000) -> BudgetStatus {
+        let spent = weeklySpend(plan: plan, recipes: recipes, priceBasisPoints: priceBasisPoints).minorUnits
         let budget = plan.budget.minorUnits
         if spent > budget { return .overBudget }
         if spent == budget { return .exactlyAtBudget }
@@ -39,16 +39,19 @@ enum Planning {
         servings: Int? = nil,
         to day: Weekday,
         in plan: WeekPlan,
-        recipes: [Recipe]
+        recipes: [Recipe],
+        priceBasisPoints: Int = 10_000
     ) -> AssignmentPreview {
         let lookup = recipesByID(recipes)
         let existingSlot = plan.slots.first(where: { $0.day == day })
         let existingID = existingSlot?.recipeID
         let replaced = existingID.flatMap { lookup[$0] }
-        let current = weeklySpend(plan: plan, recipes: recipes)
+        let current = weeklySpend(plan: plan, recipes: recipes, priceBasisPoints: priceBasisPoints)
         let selectedServings = servings ?? recipe.servings
-        let replacedCost = replaced.map { $0.estimatedCost(for: existingSlot?.servings ?? $0.servings) } ?? .zero()
-        let projected = current - replacedCost + recipe.estimatedCost(for: selectedServings)
+        let replacedCost = replaced.map {
+            $0.estimatedCost(for: existingSlot?.servings ?? $0.servings).scaled(byBasisPoints: priceBasisPoints)
+        } ?? .zero()
+        let projected = current - replacedCost + recipe.estimatedCost(for: selectedServings).scaled(byBasisPoints: priceBasisPoints)
         return AssignmentPreview(
             day: day,
             recipe: recipe,
@@ -87,10 +90,22 @@ enum Planning {
         return result
     }
 
+    static func clearing(day: Weekday, in plan: WeekPlan) -> WeekPlan {
+        var result = plan
+        guard let index = result.slots.firstIndex(where: { $0.day == day }), result.slots[index].recipeID != nil else {
+            return result
+        }
+        result.slots[index].recipeID = nil
+        result.slots[index].servings = 1
+        result.revision += 1
+        return result
+    }
+
     static func shoppingItems(
         plan: WeekPlan,
         recipes: [Recipe],
-        checkedIngredientIDs: Set<Ingredient.ID>
+        checkedIngredientIDs: Set<Ingredient.ID>,
+        priceBasisPoints: Int = 10_000
     ) -> [ShoppingListItem] {
         struct Accumulator {
             let ingredient: Ingredient
@@ -113,6 +128,7 @@ enum Planning {
                 )
                 let quantity = entry.quantity(for: slot.servings, baseServings: recipe.servings)
                 let cost = entry.cost(for: slot.servings, baseServings: recipe.servings)
+                    .scaled(byBasisPoints: priceBasisPoints)
                 if var existing = aggregated[entry.ingredient.id] {
                     existing.quantities.append(quantity)
                     existing.cost = existing.cost + cost

@@ -54,12 +54,19 @@ final class SwiftDataAppStatePersistence: AppStatePersistence {
 
     func load() throws -> AppSnapshot? {
         guard let record = try records().first else { return nil }
-        guard record.schemaVersion == AppSnapshot.currentSchemaVersion else {
+        guard (1...AppSnapshot.currentSchemaVersion).contains(record.schemaVersion) else {
             throw PersistenceError.unsupportedSchema(record.schemaVersion)
         }
-        let snapshot = try decoder.decode(AppSnapshot.self, from: record.payload)
-        guard snapshot.schemaVersion == AppSnapshot.currentSchemaVersion else {
+        var snapshot = try decoder.decode(AppSnapshot.self, from: record.payload)
+        guard (1...AppSnapshot.currentSchemaVersion).contains(snapshot.schemaVersion) else {
             throw PersistenceError.unsupportedSchema(snapshot.schemaVersion)
+        }
+        if snapshot.schemaVersion < AppSnapshot.currentSchemaVersion {
+            snapshot.schemaVersion = AppSnapshot.currentSchemaVersion
+            snapshot.preferences.normalize()
+            record.schemaVersion = AppSnapshot.currentSchemaVersion
+            record.payload = try encoder.encode(snapshot)
+            try context.save()
         }
         return snapshot
     }

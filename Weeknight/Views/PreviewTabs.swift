@@ -37,7 +37,7 @@ struct SavedView: View {
         .navigationTitle("Saved")
         .navigationBarTitleDisplayMode(.large)
         .sheet(item: $addRecipe) { recipe in
-            AddToWeekSheet(recipe: recipe)
+            AddToWeekSheet(recipe: recipe, servings: store.preferences.householdSize)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -139,12 +139,13 @@ struct SavedView: View {
     }
 
     private func savedCard(_ recipe: Recipe) -> some View {
-        VStack(spacing: 0) {
+        let displayServings = store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
+        return VStack(spacing: 0) {
             NavigationLink {
                 RecipeDetailsView(
                     recipeID: recipe.id,
                     origin: .saved,
-                    initialServings: store.scheduledSlot(for: recipe.id)?.servings ?? recipe.servings
+                    initialServings: store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
                 )
             } label: {
                 HStack(alignment: .top, spacing: 13) {
@@ -159,12 +160,19 @@ struct SavedView: View {
                                 background: WeeknightTheme.mint,
                                 systemImage: "calendar"
                             )
+                        } else if !store.eligibility(for: recipe).isEligible {
+                            StatusPill(
+                                text: "Conflicts with setup",
+                                color: Color(hex: 0x8C2A17),
+                                background: Color(hex: 0xFCEAE4),
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
                         }
                         Text(recipe.title)
                             .font(.headline.weight(.bold))
                             .foregroundStyle(WeeknightTheme.primaryText)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("\(recipe.sourceName) · \(recipe.activeMinutes)m · \(recipe.estimatedCost.formatted())")
+                        Text("\(recipe.sourceName) · \(recipe.activeMinutes)m · \(store.estimatedCost(for: recipe, servings: displayServings).formatted())")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(WeeknightTheme.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
@@ -196,7 +204,9 @@ struct SavedView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(WeeknightTheme.bottle)
+                .disabled(store.scheduledSlot(for: recipe.id) == nil && !store.eligibility(for: recipe).isEligible)
                 .accessibilityIdentifier("saved-plan-action-\(recipe.id)")
+                .accessibilityHint(store.eligibility(for: recipe).isEligible ? "Updates the plan and shopping list" : "Unavailable because this recipe conflicts with a hard preference")
 
                 Button {
                     store.toggleSaved(recipe.id)

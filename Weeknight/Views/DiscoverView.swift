@@ -20,7 +20,7 @@ struct DiscoverView: View {
         }
         .navigationBarHidden(true)
         .sheet(item: $selectedRecipe) { recipe in
-            AddToWeekSheet(recipe: recipe)
+            AddToWeekSheet(recipe: recipe, servings: store.preferences.householdSize)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -49,12 +49,23 @@ struct DiscoverView: View {
             ) { store.selectedTab = .plan }
         case .ready, .stale:
             if store.discoverRecipes.isEmpty {
-                statePanel(
-                    icon: "checkmark.circle.fill",
-                    title: "Every dinner is planned",
-                    message: "Your active week already contains every available fixture recipe.",
-                    action: "See the plan"
-                ) { store.selectedTab = .plan }
+                let unscheduled = recipesNotAlreadyScheduled
+                if unscheduled.isEmpty {
+                    statePanel(
+                        icon: "checkmark.circle.fill",
+                        title: "Every dinner is planned",
+                        message: "Your active week already contains every available fixture recipe.",
+                        action: "See the plan"
+                    ) { store.selectedTab = .plan }
+                } else {
+                    statePanel(
+                        icon: "slider.horizontal.3",
+                        title: "No recipes meet every hard rule",
+                        message: hardRuleNoResultsMessage,
+                        action: "Review Preferences"
+                    ) { store.selectedTab = .preferences }
+                    .accessibilityIdentifier("discover-no-results")
+                }
             } else if reduceMotion {
                 recipeScroll(size: size)
                     .scrollTargetBehavior(.viewAligned)
@@ -68,12 +79,12 @@ struct DiscoverView: View {
     private func recipeScroll(size: CGSize) -> some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
-                ForEach(store.discoverRecipes) { recipe in
-                    RecipeFeedCard(recipe: recipe) {
-                        selectedRecipe = recipe
+                ForEach(store.rankedDiscoverRecipes) { ranked in
+                    RecipeFeedCard(ranked: ranked) {
+                        selectedRecipe = ranked.recipe
                     }
                     .frame(width: size.width, height: size.height)
-                    .id(recipe.id)
+                    .id(ranked.id)
                 }
             }
             .scrollTargetLayout()
@@ -81,6 +92,20 @@ struct DiscoverView: View {
         .scrollIndicators(.hidden)
         .id(store.discoverRecipes.map(\.id).joined(separator: "|"))
         .accessibilityLabel("Recipe discovery feed")
+    }
+
+    private var recipesNotAlreadyScheduled: [Recipe] {
+        let scheduled = Set(store.plan.slots.compactMap(\.recipeID))
+        return store.recipes.filter { !scheduled.contains($0.id) }
+    }
+
+    private var hardRuleNoResultsMessage: String {
+        var parts: [String] = []
+        if !store.preferences.medicalAllergens.isEmpty { parts.append("declared allergens") }
+        if !store.preferences.dietaryRestrictions.isEmpty { parts.append("dietary restrictions") }
+        if store.preferences.availableAppliances.count < KitchenAppliance.allCases.count { parts.append("available appliances") }
+        let constraints = parts.isEmpty ? "current eligibility settings" : parts.joined(separator: ", ")
+        return "The remaining local recipes conflict with \(constraints). Hard rules were not weakened."
     }
 
     private var progressHeader: some View {
@@ -184,15 +209,19 @@ struct DiscoverView: View {
 
 private struct RecipeFeedCard: View {
     @Environment(AppStore.self) private var store
-    let recipe: Recipe
+    let ranked: RankedRecipe
     let onAdd: () -> Void
 
+    private var recipe: Recipe { ranked.recipe }
+    private var servings: Int { store.preferences.householdSize }
+    private var cost: Money { store.estimatedCost(for: recipe, servings: servings) }
+
     private var fit: (text: String, color: Color, background: Color, icon: String) {
-        if recipe.estimatedCost.minorUnits > store.remainingBudget.minorUnits {
-            let over = recipe.estimatedCost - store.remainingBudget
+        if cost.minorUnits > store.remainingBudget.minorUnits {
+            let over = cost - store.remainingBudget
             return ("\(over.formatted()) over this week", Color(hex: 0x8C2A17), Color(hex: 0xFCE3DC), "exclamationmark.triangle.fill")
         }
-        if recipe.estimatedCost.minorUnits * 100 > store.remainingBudget.minorUnits * 55 {
+        if cost.minorUnits * 100 > store.remainingBudget.minorUnits * 55 {
             return ("Tight, but it fits", Color(hex: 0x7A5604), Color(hex: 0xFDF0D2), "exclamationmark.circle.fill")
         }
         return ("Fits your budget", WeeknightTheme.forest, WeeknightTheme.wash, "checkmark.circle.fill")
@@ -222,8 +251,8 @@ private struct RecipeFeedCard: View {
                     .accessibilityIdentifier("discover-title-\(recipe.id)")
                 HStack(spacing: 9) {
                     Label("\(recipe.activeMinutes)m", systemImage: "clock")
-                    Text("serves \(recipe.servings)")
-                    Text(recipe.estimatedCost.formatted()).fontWeight(.bold)
+                    Text("serves \(servings)")
+                    Text(cost.formatted()).fontWeight(.bold)
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.white.opacity(0.92))
@@ -235,21 +264,32 @@ private struct RecipeFeedCard: View {
                 Divider()
                     .overlay(Color.white.opacity(0.22))
                     .padding(.vertical, 14)
-                Label {
-                    Text("\(recipe.rationale) · \(recipe.sourceName)")
-                        .fixedSize(horizontal: false, vertical: true)
-                } icon: {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(WeeknightTheme.mint)
+                VStack(alignment: .leading, spacing: 7) {
+                    Label {
+                        Text("Why it’s here: \(ranked.explanations.first ?? recipe.rationale)")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } icon: {
+                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                            .foregroundStyle(WeeknightTheme.mint)
+                    }
+                    if let caution = ranked.cautions.first {
+                        Label(caution, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Color(hex: 0xFFD58A))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(recipe.sourceName)
+                        .foregroundStyle(Color.white.opacity(0.62))
                 }
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.78))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("discover-explanation-\(recipe.id)")
                 HStack(spacing: 10) {
                     NavigationLink {
                         RecipeDetailsView(
                             recipeID: recipe.id,
                             origin: .discover,
-                            initialServings: recipe.servings
+                            initialServings: servings
                         )
                     } label: {
                         Label("Recipe details", systemImage: "book.pages")

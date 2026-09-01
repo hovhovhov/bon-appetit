@@ -1,7 +1,11 @@
 import SwiftUI
+import UIKit
 
 struct PlanView: View {
     @Environment(AppStore.self) private var store
+    @State private var swapDay: Weekday?
+    @State private var autofillPresentation: AutofillPresentation?
+    @State private var planActionError: String?
 
     private var headline: String {
         if store.filledCount == store.totalCount { return "Your week is ready to shop" }
@@ -48,6 +52,27 @@ struct PlanView: View {
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
         .navigationBarHidden(true)
+        .sheet(item: $swapDay) { day in
+            SwapMealSheet(day: day) {}
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $autofillPresentation) { presentation in
+            AutofillResultSheet(presentation: presentation)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert(
+            "Plan update failed",
+            isPresented: Binding(
+                get: { planActionError != nil },
+                set: { if !$0 { planActionError = nil } }
+            )
+        ) {
+            Button("OK") { planActionError = nil }
+        } message: {
+            Text(planActionError ?? "Try again.")
+        }
         .accessibilityIdentifier("plan-screen")
     }
 
@@ -63,13 +88,19 @@ struct PlanView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("plan-headline")
             HStack(spacing: 9) {
-                Label(store.plan.storeName, systemImage: "storefront.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 44)
-                    .background(WeeknightTheme.surface)
-                    .clipShape(Capsule())
+                Button {
+                    store.selectedTab = .preferences
+                } label: {
+                    Label(store.plan.storeName, systemImage: "storefront.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(WeeknightTheme.surface)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens Preferences")
                 Text(store.plan.weekLabel)
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
@@ -137,6 +168,22 @@ struct PlanView: View {
                 .foregroundStyle(WeeknightTheme.bottle)
                 .accessibilityIdentifier("plan-progress")
 
+            if store.filledCount < store.totalCount {
+                Button {
+                    runAutofill()
+                } label: {
+                    if store.isAutofilling {
+                        HStack { ProgressView(); Text("Filling open days…") }
+                    } else {
+                        Label("Fill the rest for me", systemImage: "wand.and.stars")
+                    }
+                }
+                .buttonStyle(ForestActionButtonStyle())
+                .disabled(store.isAutofilling)
+                .accessibilityIdentifier("autofill-plan")
+                .accessibilityHint("Uses hard preferences, cooking time, variety, and budget to fill open cooking days")
+            }
+
             ForEach(store.plan.slots) { slot in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 9) {
@@ -160,12 +207,157 @@ struct PlanView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
+                        if let conflict = store.conflict(for: slot.day) {
+                            planConflictWarning(conflict)
+                        }
                     } else {
                         EmptyMealCard(day: slot.day)
                     }
                 }
             }
         }
+    }
+
+    private func planConflictWarning(_ conflict: ScheduledPreferenceConflict) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Label("This meal conflicts with your setup", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline.weight(.bold))
+            Text(conflict.reasons.map(\.message).joined(separator: " "))
+                .font(.subheadline)
+            Text("It is still on your plan. Weeknight cannot describe it as safe or eligible; verify labels and allergen information.")
+                .font(.footnote.weight(.semibold))
+            HStack(spacing: 8) {
+                Button("Replace") { swapDay = conflict.day }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(hex: 0x8C2A17))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("replace-conflict-\(conflict.day.rawValue)")
+                Button("Clear", role: .destructive) {
+                    Task {
+                        do {
+                            try await store.clearMeal(on: conflict.day)
+                            UIAccessibility.post(notification: .announcement, argument: "\(conflict.day.rawValue)’s meal cleared")
+                        } catch {
+                            planActionError = error.localizedDescription
+                            UIAccessibility.post(notification: .announcement, argument: "The meal could not be cleared")
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("clear-conflict-\(conflict.day.rawValue)")
+            }
+        }
+        .foregroundStyle(Color(hex: 0x8C2A17))
+        .padding(14)
+        .background(Color(hex: 0xFCEAE4))
+        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan-conflict-\(conflict.day.rawValue)")
+    }
+
+    private func runAutofill() {
+        Task {
+            do {
+                let outcome = try await store.fillOpenDays()
+                autofillPresentation = AutofillPresentation(outcome: outcome)
+                let announcement: String
+                if case .success = outcome {
+                    announcement = "Open cooking days filled"
+                } else {
+                    announcement = "Weeknight could not fill every open day"
+                }
+                UIAccessibility.post(notification: .announcement, argument: announcement)
+            } catch {
+                autofillPresentation = AutofillPresentation(
+                    outcome: .unable(message: error.localizedDescription, suggestions: ["Try again", "Review Preferences"])
+                )
+                UIAccessibility.post(notification: .announcement, argument: "Autofill could not be completed")
+            }
+        }
+    }
+}
+
+struct AutofillPresentation: Identifiable {
+    let id = UUID()
+    let outcome: AutofillOutcome
+}
+
+private struct AutofillResultSheet: View {
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let presentation: AutofillPresentation
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    switch presentation.outcome {
+                    case .success(_, let assignments, let projectedSpend):
+                        Label("Your open days are filled", systemImage: "checkmark.circle.fill")
+                            .font(.title2.weight(.heavy))
+                            .foregroundStyle(WeeknightTheme.bottle)
+                        Text("Weeknight applied one complete plan update and regenerated the shopping list.")
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                        ForEach(assignments) { assignment in
+                            HStack(alignment: .top, spacing: 12) {
+                                Text(assignment.day.shortName)
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(width: 46, height: 46)
+                                    .background(WeeknightTheme.wash)
+                                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(assignment.recipeTitle).font(.headline.weight(.bold))
+                                    Text("\(assignment.servings) serving\(assignment.servings == 1 ? "" : "s")")
+                                        .font(.subheadline).foregroundStyle(WeeknightTheme.secondaryText)
+                                }
+                                Spacer()
+                            }
+                            .padding(12)
+                            .weeknightCard()
+                        }
+                        Label("Projected week: \(projectedSpend.formatted()) of \(store.plan.budget.formatted())", systemImage: "banknote")
+                            .font(.headline.weight(.semibold))
+                    case .unable(let message, let suggestions):
+                        Label("Weeknight couldn’t fill every open day", systemImage: "exclamationmark.triangle.fill")
+                            .font(.title2.weight(.heavy))
+                            .foregroundStyle(Color(hex: 0x8C2A17))
+                        Text(message)
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                        if !suggestions.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Things you can change").font(.headline.weight(.bold))
+                                ForEach(suggestions, id: \.self) { suggestion in
+                                    Label(suggestion, systemImage: "arrow.right.circle")
+                                }
+                            }
+                            .padding(15)
+                            .weeknightCard()
+                        }
+                        Text("Hard allergen, dietary, and appliance rules were not weakened.")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color(hex: 0x8C2A17))
+                        Button("Review Preferences") {
+                            dismiss()
+                            store.selectedTab = .preferences
+                        }
+                        .buttonStyle(PrimaryActionButtonStyle())
+                        .accessibilityIdentifier("autofill-review-preferences")
+                    }
+                }
+                .padding(WeeknightTheme.Spacing.gutter)
+            }
+            .background(WeeknightTheme.background.ignoresSafeArea())
+            .navigationTitle("Autofill result")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+            }
+        }
+        .accessibilityIdentifier({
+            if case .success = presentation.outcome { return "autofill-success" }
+            return "autofill-unable"
+        }())
     }
 }
 
@@ -255,6 +447,7 @@ private struct BudgetCard: View {
 }
 
 private struct PlannedMealCard: View {
+    @Environment(AppStore.self) private var store
     let day: Weekday
     let recipe: Recipe
     let servings: Int
@@ -276,7 +469,7 @@ private struct PlannedMealCard: View {
                 HStack(spacing: 8) {
                     Text("\(recipe.activeMinutes)m")
                     Text("serves \(servings)")
-                    Text(recipe.estimatedCost(for: servings).formatted()).fontWeight(.bold)
+                    Text(store.estimatedCost(for: recipe, servings: servings).formatted()).fontWeight(.bold)
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WeeknightTheme.secondaryText)
@@ -286,7 +479,7 @@ private struct PlannedMealCard: View {
         .padding(13)
         .weeknightCard()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(day.rawValue), \(recipe.title), \(recipe.activeMinutes) minutes, serves \(servings), \(recipe.estimatedCost(for: servings).formatted())")
+        .accessibilityLabel("\(day.rawValue), \(recipe.title), \(recipe.activeMinutes) minutes, serves \(servings), \(store.estimatedCost(for: recipe, servings: servings).formatted())")
     }
 }
 
