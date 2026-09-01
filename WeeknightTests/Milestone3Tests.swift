@@ -105,7 +105,16 @@ final class Milestone3DomainTests: XCTestCase {
             savedRecipeIDs: []
         )
         let carbonara = try XCTUnwrap(ranked.first(where: { $0.id == "carbonara" }))
+        let baselineCarbonara = try XCTUnwrap(
+            Personalization.rankedDiscoverRecipes(
+                recipes: WeeknightFixture.recipes,
+                plan: WeeknightFixture.initialPlan,
+                preferences: .canonical,
+                savedRecipeIDs: []
+            ).first(where: { $0.id == "carbonara" })
+        )
 
+        XCTAssertLessThan(carbonara.score, baselineCarbonara.score)
         XCTAssertTrue(carbonara.cautions.contains(where: { $0.contains("disliked") }))
         XCTAssertFalse(carbonara.cautions.contains(where: { $0.localizedCaseInsensitiveContains("allergen") }))
         XCTAssertTrue(Personalization.eligibility(of: carbonara.recipe, preferences: preferences).isEligible)

@@ -430,6 +430,26 @@ final class Milestone3JourneyTests: XCTestCase {
         XCTAssertTrue(element("preferences-screen").waitForExistence(timeout: 5))
     }
 
+    func testDislikeDeprioritizesWithoutRemovingOrMedicalizingRecipe() {
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "dislikes"])
+        XCTAssertTrue(element("preference-editor-dislikes").waitForExistence(timeout: 4))
+        app.buttons["dislike-pancetta"].tap()
+        app.buttons["preference-save"].tap()
+        XCTAssertTrue(element("preference-editor-dislikes").waitForNonExistence(timeout: 5))
+
+        app.tabBars.buttons["Discover"].tap()
+        let firstRecipeTitle = app.staticTexts
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-"))
+            .firstMatch
+        XCTAssertTrue(firstRecipeTitle.waitForExistence(timeout: 5))
+        XCTAssertNotEqual(firstRecipeTitle.identifier, "discover-title-carbonara")
+
+        let carbonaraExplanation = element("discover-explanation-carbonara")
+        scrollTo(carbonaraExplanation)
+        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("marked as disliked"))
+        XCTAssertFalse(carbonaraExplanation.label.localizedCaseInsensitiveContains("allergen"))
+    }
+
     func testAutofillSuccessAndUnableStates() {
         let fill = app.buttons["autofill-plan"]
         XCTAssertTrue(fill.waitForExistence(timeout: 5))

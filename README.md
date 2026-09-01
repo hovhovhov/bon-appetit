@@ -46,7 +46,7 @@ xcodebuild \
 The completed milestone was validated on September 1, 2026 with Xcode 26.6 and the iOS 26.5 Simulator runtime:
 
 - Clean build: passed on iPhone 17
-- Automated tests: 41 unit/store tests plus 14 Milestone 1–3 UI journeys
+- Automated tests: 41 unit/store tests plus 15 Milestone 1–3 UI journeys
 - Device range: iPhone SE (3rd generation), iPhone 14, iPhone 17, and iPhone 17 Pro Max
 - Accessibility: native controls and focus behavior, 44-point touch targets, semantic selected/disabled/editing/committing states, VoiceOver announcements, Reduce Motion-aware discovery paging, and a recorded Accessibility Large Dynamic Type Preferences view
 - Evidence: named Simulator screenshots in `artifacts/milestone-3/screenshots/`
