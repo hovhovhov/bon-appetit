@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:"Open Runde";src:url("fonts/OpenRunde-Regular.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Open Runde";src:url("fonts/OpenRunde-Medium.woff2") format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Open Runde";src:url("fonts/OpenRunde-Semibold.woff2") format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Open Runde";src:url("fonts/OpenRunde-Bold.woff2") format("woff2");font-weight:700;font-display:swap}
+body{margin:0;background:#EDE4D2;font-family:"Open Runde",Inter,system-ui,sans-serif;color:#1D1B18;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#186B2C;text-decoration:none}a:hover{color:#3FBE55}
+</style>
+</helmet>
+
+<div style="padding:48px 56px 96px">
+
+  <div style="display:flex;align-items:center;gap:16px">
+    <div style="width:46px;height:46px;border-radius:15px;background:#0E2A1C;display:flex;align-items:center;justify-content:center;flex:none">
+      <div style="width:19px;height:19px;border-radius:6px 13px 6px 13px;background:#3FBE55"></div>
+    </div>
+    <div style="font:800 42px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.04em;color:#0E2A1C">Weeknight</div>
+    <div style="font:600 12.5px/1.4 'Open Runde',sans-serif;color:#0E2A1C;background:#DCF3E1;border-radius:999px;padding:7px 13px">iPhone · 390 × 844</div>
+  </div>
+  <div style="font:500 16px/1.6 'Open Runde',sans-serif;color:#4A4741;max-width:780px;margin:16px 0 0;text-wrap:pretty">A full-screen recipe feed wired straight into a five-day dinner plan, a grocery budget and one consolidated list. Every card in Discover is two taps from becoming Thursday's dinner, and every addition moves the budget bar and the shopping list at the same moment.</div>
+
+  <div style="display:flex;gap:34px;margin-top:26px;flex-wrap:wrap;max-width:1100px">
+    <div style="flex:1;min-width:230px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Visual direction</div>
+      <div style="font:500 14px/1.6 'Open Runde',sans-serif;color:#4A4741;margin-top:9px">Deep forest green carries authority and gives photography something to sit against; leaf green is reserved for the one action that matters on each screen. Warm cream replaces white throughout, so the app reads as a kitchen rather than a clinic. Bricolage Grotesque sets headlines with editorial weight; Open Runde handles every number and label.</div>
+    </div>
+    <div style="flex:1;min-width:230px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Information architecture</div>
+      <div style="font:500 14px/1.6 'Open Runde',sans-serif;color:#4A4741;margin-top:9px">Four tabs: Plan (home, the weekly command centre), Discover (the feed), Saved, You (preferences). Shopping list and recipe detail are pushed views. Account and app settings live behind the avatar, top right of Plan.</div>
+    </div>
+    <div style="flex:1;min-width:230px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Core loop</div>
+      <div style="font:500 14px/1.6 'Open Runde',sans-serif;color:#4A4741;margin-top:9px">Discover a recipe → add it to a day → the budget bar and list totals recalculate → the week completes → shop from one list. The plan is never a dead end: an empty day always offers a route back into the feed, and every scheduled meal can be swapped in place.</div>
+    </div>
+  </div>
+
+  <!-- ══════ BOARD ══════ -->
+  <div style="margin-top:56px;display:flex;align-items:baseline;gap:14px;white-space:nowrap">
+    <div style="font:800 26px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;color:#0E2A1C">Every screen</div>
+    <div style="font:500 13.5px/1.4 'Open Runde',sans-serif;color:#6E6A62">All seven frames read from the same live state as the prototype below — change something there and the board follows.</div>
+  </div>
+
+  <div style="display:flex;gap:26px;margin-top:22px;padding-bottom:14px;width:max-content">
+    <sc-for list="{{ boardFrames }}" as="f" hint-placeholder-count="7">
+      <div style="flex:none;display:flex;flex-direction:column;gap:11px">
+        <div style="display:flex;align-items:baseline;gap:9px">
+          <div style="font:700 10px/1 'Open Runde',sans-serif;letter-spacing:.1em;color:#FBF5EA;background:#0E2A1C;border-radius:5px;padding:4px 7px">{{ f.n }}</div>
+          <div style="font:700 14px/1.2 'Open Runde',sans-serif;color:#0E2A1C">{{ f.title }}</div>
+        </div>
+        <div style="font:500 12px/1.45 'Open Runde',sans-serif;color:#6E6A62;max-width:390px;min-height:34px">{{ f.note }}</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ w390 }}" height="{{ h844 }}" hint-size="390px,844px">
+          <dc-import name="Screen" style="height:100%" screen="{{ f.screen }}" vm="{{ vm }}" sheet="{{ f.sheet }}" hint-size="390px,844px"></dc-import>
+        </x-import>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ══════ LIVE ══════ -->
+  <div style="margin-top:64px;display:flex;align-items:baseline;gap:14px;white-space:nowrap">
+    <div style="font:800 26px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;color:#0E2A1C">Live prototype</div>
+    <div style="font:500 13.5px/1.4 'Open Runde',sans-serif;color:#6E6A62">Tap through it. State is real: budget, list totals, saves and swaps all recalculate.</div>
+  </div>
+
+  <div style="display:flex;gap:44px;margin-top:22px;flex-wrap:wrap;align-items:flex-start">
+    <div style="flex:none">
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ w390 }}" height="{{ h844 }}" hint-size="390px,844px">
+        <dc-import name="Screen" style="height:100%" screen="{{ liveScreen }}" vm="{{ vm }}" sheet="{{ liveSheet }}" hint-size="390px,844px"></dc-import>
+      </x-import>
+    </div>
+
+    <div style="flex:1;min-width:320px;max-width:520px;display:flex;flex-direction:column;gap:14px">
+      <div style="border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:22px">
+        <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Happy path to try</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+          <sc-for list="{{ walkthrough }}" as="w" hint-placeholder-count="6">
+            <div style="display:flex;gap:12px">
+              <div style="width:22px;height:22px;border-radius:999px;background:#DCF3E1;color:#186B2C;display:flex;align-items:center;justify-content:center;font:700 11px/1 'Open Runde',sans-serif;flex:none;margin-top:1px">{{ w.n }}</div>
+              <div style="font:500 14px/1.55 'Open Runde',sans-serif;color:#4A4741;text-wrap:pretty">{{ w.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="border-radius:22px;background:#0E2A1C;color:#FBF5EA;padding:22px">
+        <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(251,245,234,.5)">Live state</div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px 30px;margin-top:15px">
+          <sc-for list="{{ liveStats }}" as="s" hint-placeholder-count="4">
+            <div>
+              <div style="font:800 22px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;color:#8FE7A8">{{ s.value }}</div>
+              <div style="font:500 11.5px/1.3 'Open Runde',sans-serif;color:rgba(251,245,234,.6);margin-top:5px">{{ s.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div onClick="{{ resetDemo }}" style="margin-top:20px;padding:12px;border-radius:999px;border:1px solid rgba(251,245,234,.24);text-align:center;font:600 13px/1 'Open Runde',sans-serif;color:#FBF5EA;cursor:pointer">Reset the demo week</div>
+      </div>
+
+      <div style="border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:22px">
+        <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Implementation notes</div>
+        <div style="display:flex;flex-direction:column;gap:11px;margin-top:14px">
+          <sc-for list="{{ devNotes }}" as="d" hint-placeholder-count="6">
+            <div>
+              <div style="font:700 13px/1.3 'Open Runde',sans-serif;color:#0E2A1C">{{ d.head }}</div>
+              <div style="font:500 13px/1.55 'Open Runde',sans-serif;color:#4A4741;margin-top:3px;text-wrap:pretty">{{ d.body }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ SYSTEM ══════ -->
+  <div style="margin-top:70px;display:flex;align-items:baseline;gap:14px;white-space:nowrap">
+    <div style="font:800 26px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;color:#0E2A1C">Design system</div>
+    <div style="font:500 13.5px/1.4 'Open Runde',sans-serif;color:#6E6A62">Tokens and component states used across all seven screens.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:20px;margin-top:22px;max-width:1420px">
+
+    <div style="flex:1 1 420px;border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:24px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Colour</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px">
+        <sc-for list="{{ swatches }}" as="c" hint-placeholder-count="9">
+          <div style="width:96px">
+            <div style="height:60px;border-radius:14px;border:1px solid rgba(14,42,28,.08);background:{{ c.hex }}"></div>
+            <div style="font:700 11.5px/1.3 'Open Runde',sans-serif;color:#0E2A1C;margin-top:7px">{{ c.name }}</div>
+            <div style="font:500 10.5px/1.3 'Open Runde',sans-serif;color:#8F8B82;margin-top:2px">{{ c.hex }}</div>
+            <div style="font:500 10.5px/1.35 'Open Runde',sans-serif;color:#A09B92;margin-top:3px">{{ c.use }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1 1 340px;border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:24px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Type</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+        <div>
+          <div style="font:800 30px/1.06 'Bricolage Grotesque',sans-serif;letter-spacing:-.032em;color:#0E2A1C">Display 30/800</div>
+          <div style="font:500 11px/1 'Open Runde',sans-serif;color:#8F8B82;margin-top:5px">Bricolage Grotesque · screen titles, money</div>
+        </div>
+        <div>
+          <div style="font:800 21px/1.15 'Bricolage Grotesque',sans-serif;letter-spacing:-.026em;color:#0E2A1C">Section 21/800</div>
+          <div style="font:500 11px/1 'Open Runde',sans-serif;color:#8F8B82;margin-top:5px">Section heads, sheet titles</div>
+        </div>
+        <div>
+          <div style="font:700 16.5px/1.25 'Open Runde',sans-serif;letter-spacing:-.012em;color:#0E2A1C">Card title 16.5/700</div>
+          <div style="font:500 11px/1 'Open Runde',sans-serif;color:#8F8B82;margin-top:5px">Recipe names in cards and rows</div>
+        </div>
+        <div>
+          <div style="font:500 14px/1.5 'Open Runde',sans-serif;color:#1D1B18">Body 14/500 — ingredients, method steps, descriptions.</div>
+          <div style="font:500 11px/1 'Open Runde',sans-serif;color:#8F8B82;margin-top:5px">Open Runde Medium</div>
+        </div>
+        <div>
+          <div style="font:600 12px/1 'Open Runde',sans-serif;color:#6E6A62">Meta 12/600 — 25m · serves 1 · $11.60</div>
+          <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.13em;text-transform:uppercase;color:#8F8B82;margin-top:8px">Eyebrow 11/700 · .13em</div>
+        </div>
+      </div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(14,42,28,.08);font:500 12.5px/1.6 'Open Runde',sans-serif;color:#4A4741">Spacing runs on a 4px grid; screens gutter at 20px. Radii: 999 pills, 22 cards, 18 rows, 28 sheets, 14 thumbnails. Touch targets never below 44px.</div>
+    </div>
+
+    <div style="flex:1 1 420px;border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:24px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Buttons and controls</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px">
+        <div style="padding:14px 20px;border-radius:999px;background:#3FBE55;color:#FFFFFF;font:700 14px/1 'Open Runde',sans-serif;box-shadow:0 12px 24px -14px rgba(63,190,85,.9)">Add to week</div>
+        <div style="padding:14px 20px;border-radius:999px;background:#0E2A1C;color:#FBF5EA;font:700 14px/1 'Open Runde',sans-serif">Swap meal</div>
+        <div style="padding:14px 20px;border-radius:999px;background:#FFFFFF;border:1px solid rgba(14,42,28,.1);color:#0E2A1C;font:600 14px/1 'Open Runde',sans-serif">Fill for me</div>
+        <div style="padding:14px 20px;border-radius:999px;background:#E4DCCA;color:#A09B92;font:700 14px/1 'Open Runde',sans-serif">Choose a day</div>
+        <div style="padding:14px 20px;border-radius:999px;background:#3FBE55;color:#FFFFFF;font:700 14px/1 'Open Runde',sans-serif;display:flex;align-items:center;gap:9px;opacity:.85">
+          <span style="width:13px;height:13px;border-radius:999px;border:2px solid rgba(255,255,255,.4);border-top-color:#FFF;display:inline-block"></span>Adding…
+        </div>
+        <div style="padding:14px 20px;border-radius:999px;background:#FCEAE4;color:#B7351F;font:700 14px/1 'Open Runde',sans-serif">Remove day</div>
+      </div>
+      <div style="font:500 11.5px/1.4 'Open Runde',sans-serif;color:#8F8B82;margin-top:10px">Primary leaf · secondary forest · tertiary outline · disabled · loading · destructive. One leaf-green action per screen, maximum.</div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:22px">
+        <div style="font:600 11.5px/1 'Open Runde',sans-serif;color:#186B2C;background:#E9F6ED;border-radius:999px;padding:7px 11px">Healthy comfort</div>
+        <div style="display:inline-flex;align-items:center;gap:7px;background:#DCF3E1;border-radius:999px;padding:7px 12px 7px 9px"><span style="width:7px;height:7px;border-radius:999px;background:#186B2C"></span><span style="font:700 11.5px/1 'Open Runde',sans-serif;color:#0E2A1C">Fits your budget</span></div>
+        <div style="display:inline-flex;align-items:center;gap:7px;background:#FDF0D2;border-radius:999px;padding:7px 12px 7px 9px"><span style="width:7px;height:7px;border-radius:999px;background:#B98307"></span><span style="font:700 11.5px/1 'Open Runde',sans-serif;color:#7A5604">Tight but fits</span></div>
+        <div style="display:inline-flex;align-items:center;gap:7px;background:#FCE3DC;border-radius:999px;padding:7px 12px 7px 9px"><span style="width:7px;height:7px;border-radius:999px;background:#C4472C"></span><span style="font:700 11.5px/1 'Open Runde',sans-serif;color:#8C2A17">$4.10 over</span></div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#FCEAE4;border:1px solid rgba(196,58,36,.22);border-radius:999px;padding:6px 11px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B7351F" stroke-width="2.6" stroke-linecap="round"><path d="M12 4.5v9.5"></path><path d="M12 18h.01"></path></svg><span style="font:700 11px/1 'Open Runde',sans-serif;color:#8C2A17">Allergen</span></div>
+        <div style="font:600 10px/1 'Open Runde',sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#186B2C;background:#E9F6ED;border-radius:999px;padding:5px 8px">Eligibility</div>
+      </div>
+      <div style="font:500 11.5px/1.4 'Open Runde',sans-serif;color:#8F8B82;margin-top:10px">Every status pill carries a dot or icon as well as colour, so state never depends on hue alone.</div>
+
+      <div style="display:flex;gap:22px;margin-top:22px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:9px"><span style="width:23px;height:23px;border-radius:999px;border:2px solid #D2CBBB;background:#FFF;display:inline-block"></span><span style="font:500 12.5px/1 'Open Runde',sans-serif;color:#6E6A62">Unchecked</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="width:23px;height:23px;border-radius:999px;background:#3FBE55;border:2px solid #3FBE55;display:inline-flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"></path></svg></span><span style="font:500 12.5px/1 'Open Runde',sans-serif;color:#6E6A62">Bought</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="width:23px;height:23px;border-radius:999px;border:2px solid #E4DCCA;background:#F2EBDC;display:inline-block"></span><span style="font:500 12.5px/1 'Open Runde',sans-serif;color:#A09B92">Disabled</span></div>
+        <div style="display:flex;align-items:center;gap:9px"><span style="padding:9px 13px;border-radius:999px;border:1.5px solid #3FBE55;background:#DCF3E1;font:600 12.5px/1 'Open Runde',sans-serif;color:#0E2A1C">Selected</span><span style="padding:9px 13px;border-radius:999px;border:1.5px solid rgba(14,42,28,.1);background:#FFF;font:600 12.5px/1 'Open Runde',sans-serif;color:#4A4741">Unselected</span></div>
+      </div>
+    </div>
+
+    <div style="flex:1 1 340px;border-radius:22px;background:#FBF5EA;border:1px solid rgba(14,42,28,.08);padding:24px">
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82">Budget indicator</div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px">
+        <div>
+          <div style="height:10px;border-radius:999px;background:#EDE5D5;overflow:hidden"><div style="height:100%;width:44%;border-radius:999px;background:linear-gradient(90deg,#3FBE55,#8FE7A8)"></div></div>
+          <div style="font:600 12px/1 'Open Runde',sans-serif;color:#186B2C;margin-top:8px">Comfortable · $44.60 still to spend</div>
+        </div>
+        <div>
+          <div style="height:10px;border-radius:999px;background:#EDE5D5;overflow:hidden"><div style="height:100%;width:88%;border-radius:999px;background:linear-gradient(90deg,#E9B23C,#F5D07A)"></div></div>
+          <div style="font:600 12px/1 'Open Runde',sans-serif;color:#8A6104;margin-top:8px">Close to the limit · $9.40 left</div>
+        </div>
+        <div>
+          <div style="height:10px;border-radius:999px;background:#EDE5D5;overflow:hidden;display:flex"><div style="height:100%;width:82%;background:#C4472C"></div><div style="height:100%;width:18%;background:repeating-linear-gradient(135deg,#E4553A 0 5px,#F3B7A9 5px 10px)"></div></div>
+          <div style="font:600 12px/1 'Open Runde',sans-serif;color:#8C2A17;margin-top:8px">$6.20 over · swap one meal to recover</div>
+        </div>
+      </div>
+      <div style="font:700 11px/1 'Open Runde',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8F8B82;margin-top:26px">Empty, loading, error</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
+        <div style="border-radius:18px;border:1.5px dashed rgba(14,42,28,.2);padding:16px;background:rgba(255,255,255,.55)">
+          <div style="font:700 14px/1.25 'Open Runde',sans-serif;color:#0E2A1C">Nothing saved yet</div>
+          <div style="font:500 12.5px/1.45 'Open Runde',sans-serif;color:#6E6A62;margin-top:4px">Tap the heart on any recipe in Discover and it lands here.</div>
+        </div>
+        <div style="border-radius:18px;background:#FFF;border:1px solid rgba(14,42,28,.07);padding:14px;display:flex;gap:12px;align-items:center">
+          <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(100deg,#EDE5D5 30%,#F7F1E6 50%,#EDE5D5 70%);flex:none"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+            <div style="height:11px;width:78%;border-radius:999px;background:#EDE5D5"></div>
+            <div style="height:9px;width:46%;border-radius:999px;background:#F1EADB"></div>
+          </div>
+        </div>
+        <div style="border-radius:18px;background:#FCEAE4;border:1px solid rgba(196,58,36,.2);padding:14px;display:flex;gap:11px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B7351F" stroke-width="2.4" stroke-linecap="round" style="flex:none;margin-top:2px"><path d="M12 4.5v9.5"></path><path d="M12 18h.01"></path></svg>
+          <div>
+            <div style="font:700 13.5px/1.3 'Open Runde',sans-serif;color:#8C2A17">Prices didn't refresh</div>
+            <div style="font:500 12.5px/1.45 'Open Runde',sans-serif;color:#8C2A17;margin-top:3px">We're showing last week's Trader Joe's prices. Pull down to try again.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:44px;font:500 13px/1.6 'Open Runde',sans-serif;color:#6E6A62;max-width:760px">Photography is the eight dishes you supplied, cropped to fill. Swap in your own library by replacing the files in <span style="font:600 12px/1 ui-monospace,Menlo,monospace;background:#FBF5EA;padding:3px 6px;border-radius:6px">photos/</span>; every screen reads the same eight paths.</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;weeklyBudget&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:80,&quot;min&quot;:40,&quot;max&quot;:240,&quot;step&quot;:10,&quot;unit&quot;:&quot;$/week&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;householdSize&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;max&quot;:6,&quot;step&quot;:1,&quot;unit&quot;:&quot;people&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo data&quot;},&quot;marketName&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Trader Joe's&quot;,&quot;Whole Foods&quot;,&quot;Safeway&quot;,&quot;Costco&quot;,&quot;Aldi&quot;],&quot;default&quot;:&quot;Trader Joe's&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo data&quot;}}">
+const CAT = ['Produce', 'Meat & fish', 'Chilled & dairy', 'Pantry'];
+
+const RECIPES = [
+  { id: 'honeysoy', name: 'Honey Soy Chicken & Broccoli', src: 'Sift & Simmer', photo: 'photos/honeysoy.jpg', min: 25, kcal: '545', protein: '48g', carbs: '61g', fat: '14g',
+    tags: ['Fakeaway', 'Protein-packed'], why: 'One pan, and it uses the soy and honey already on your list',
+    items: [['Chicken thighs', '500g', 6.20, 1], ['Broccoli', '1 head', 1.90, 0], ['Honey', '2 tbsp', 0.60, 3], ['Soy sauce', '3 tbsp', 0.50, 3], ['Jasmine rice', '150g', 1.20, 3], ['Garlic', '3 cloves', 0.35, 0], ['Sesame seeds', '1 tsp', 0.25, 3], ['Spring onions', '2', 0.60, 0]],
+    steps: ['Rinse the rice and set it to cook.', 'Cut the chicken into bite-sized pieces and slice the garlic.', 'Sear the chicken hard in a hot pan until deeply golden, then add the garlic.', 'Pour in the honey and soy, add the broccoli, cover and steam for four minutes.', 'Spoon over the rice and finish with sesame seeds and spring onion.'] },
+  { id: 'chilli', name: 'Smoky Chilli Con Carne', src: 'Cook Republic', photo: 'photos/chilli.jpg', min: 45, kcal: '620', protein: '41g', carbs: '58g', fat: '22g',
+    tags: ['Healthy comfort', 'Batch friendly'], why: 'Makes a second portion for Thursday lunch at no extra cost',
+    items: [['Beef mince', '400g', 6.40, 1], ['Kidney beans', '1 tin', 1.10, 3], ['Chopped tomatoes', '1 tin', 0.95, 3], ['Onion', '1', 0.45, 0], ['Red pepper', '1', 0.95, 0], ['Chipotle paste', '1 tbsp', 0.90, 3], ['Ground cumin', '1 tsp', 0.30, 3], ['Sour cream', '1 pot', 1.65, 2], ['Long-grain rice', '150g', 0.90, 3]],
+    steps: ['Brown the mince in a dry pan and break it up as it colours.', 'Add the onion and pepper, cook until soft.', 'Stir in the cumin and chipotle paste for a minute.', 'Add the tomatoes and beans, simmer gently for 25 minutes.', 'Serve over rice with a spoonful of sour cream.'] },
+  { id: 'stirfry', name: 'Ginger Rice Noodle Stir-Fry', src: 'Wok & Kin', photo: 'photos/stirfry.webp', min: 20, kcal: '480', protein: '24g', carbs: '66g', fat: '15g',
+    tags: ['Speedy', 'Meat-free'], why: 'Under 20 minutes and the cheapest dinner in your feed',
+    items: [['Rice noodles', '200g', 1.80, 3], ['Firm tofu', '280g', 2.90, 2], ['Ginger', '1 thumb', 0.55, 0], ['Garlic', '3 cloves', 0.35, 0], ['Tenderstem broccoli', '200g', 2.20, 0], ['Carrot', '1', 0.35, 0], ['Soy sauce', '2 tbsp', 0.35, 3], ['Sesame oil', '1 tbsp', 0.45, 3], ['Lime', '1', 0.45, 0], ['Crispy shallots', '30g', 0.80, 3]],
+    steps: ['Soak the noodles in just-boiled water until pliable, then drain.', 'Press the tofu dry and cube it. Fry until crisp on all sides.', 'Add ginger, garlic and vegetables to the hot wok and toss for two minutes.', 'Return the noodles and tofu, splash in soy and sesame oil.', 'Finish with lime and crispy shallots.'] },
+  { id: 'curry', name: 'Weeknight Chicken Curry', src: 'Meera Sodha', photo: 'photos/curry.jpg', min: 40, kcal: '590', protein: '44g', carbs: '55g', fat: '20g',
+    tags: ['Healthy comfort', 'Freezes well'], why: 'You cooked something similar twice last month and rated it up',
+    items: [['Chicken thighs', '400g', 5.20, 1], ['Onion', '1', 0.45, 0], ['Garlic', '3 cloves', 0.35, 0], ['Ginger', '1 thumb', 0.55, 0], ['Curry powder', '2 tbsp', 0.80, 3], ['Chopped tomatoes', '1 tin', 0.95, 3], ['Coconut milk', '1 tin', 1.60, 3], ['Basmati rice', '150g', 1.20, 3], ['Coriander', '1 bunch', 0.90, 0], ['Spinach', '100g', 0.40, 0]],
+    steps: ['Soften the onion slowly in oil until sweet and golden.', 'Add garlic, ginger and curry powder; cook until fragrant.', 'Add the chicken and turn it in the spices.', 'Pour in tomatoes and coconut milk, simmer 20 minutes.', 'Wilt in the spinach, scatter with coriander, serve with rice.'] },
+  { id: 'carbonara', name: 'Proper Carbonara', src: 'Bon Appétit', photo: 'photos/carbonara.jpg', min: 20, kcal: '705', protein: '32g', carbs: '72g', fat: '31g',
+    tags: ['Speedy', 'Five ingredients'], why: 'Cheapest way to fill a night this week',
+    items: [['Spaghetti', '125g', 0.70, 3], ['Pancetta', '100g', 3.10, 1], ['Eggs', '2', 0.70, 2], ['Pecorino', '40g', 2.20, 2], ['Black pepper', '1 tsp', 0.25, 3], ['Parmesan', '20g', 1.95, 2]],
+    steps: ['Boil the pasta in well-salted water.', 'Render the pancetta slowly until the fat runs and it crisps.', 'Beat the eggs with both cheeses and a lot of black pepper.', 'Toss the drained pasta into the pancetta pan off the heat.', 'Add the egg mixture with a splash of pasta water and stir hard until glossy.'] },
+  { id: 'caesar', name: 'Charred Chicken Caesar', src: 'Delish', photo: 'photos/caesar.jpg', min: 25, kcal: '520', protein: '46g', carbs: '22g', fat: '28g',
+    tags: ['Low calorie', 'Protein-packed'], why: 'Matches the high-protein, lighter dinners you keep saving',
+    items: [['Chicken breast', '250g', 4.20, 1], ['Romaine lettuce', '1', 1.55, 0], ['Parmesan', '40g', 1.85, 2], ['Sourdough', '2 slices', 0.80, 3], ['Anchovies', '3 fillets', 0.65, 3], ['Egg', '1', 0.35, 2], ['Lemon', '1', 0.40, 0]],
+    steps: ['Tear the sourdough and toast it in oil until crunchy.', 'Season and griddle the chicken until charred and just cooked.', 'Blend anchovy, egg yolk, lemon and half the parmesan into a dressing.', 'Char the halved romaine cut-side down for a minute.', 'Dress everything, add croutons and the rest of the parmesan.'] },
+  { id: 'chopped', name: 'Big Chopped Salad', src: 'Downshiftology', photo: 'photos/chopped.jpg', min: 15, kcal: '410', protein: '18g', carbs: '31g', fat: '24g',
+    tags: ['Speedy', 'Meat-free'], why: 'No cooking at all, for the night you get home late',
+    items: [['Cucumber', '1', 0.85, 0], ['Cherry tomatoes', '250g', 1.95, 0], ['Chickpeas', '1 tin', 0.95, 3], ['Feta', '100g', 2.35, 2], ['Red onion', '1', 0.40, 0], ['Green olives', '80g', 1.45, 3], ['Dill', '1 bunch', 0.85, 0], ['Red wine vinegar', '1 tbsp', 0.30, 3], ['Sunflower seeds', '20g', 0.30, 3]],
+    steps: ['Chop everything to roughly the same size — this is the whole technique.', 'Rinse and drain the chickpeas well.', 'Whisk vinegar with olive oil, salt and plenty of pepper.', 'Toss, then fold through the feta so it stays in pieces.', 'Toast the seeds in a dry pan and scatter over.'] },
+  { id: 'steak', name: 'Steak Frites, Chimichurri', src: 'Serious Eats', photo: 'photos/steak.png', min: 35, kcal: '780', protein: '52g', carbs: '44g', fat: '42g',
+    tags: ['Treat night', 'Protein-packed'], why: 'Saved for Friday — a treat that still fits the week',
+    items: [['Sirloin steak', '250g', 11.50, 1], ['Potatoes', '400g', 1.10, 0], ['Parsley', '1 bunch', 0.85, 0], ['Coriander', '1 bunch', 0.85, 0], ['Red wine vinegar', '2 tbsp', 0.45, 3], ['Garlic', '2 cloves', 0.25, 0], ['Olive oil', '3 tbsp', 0.60, 3], ['Chilli flakes', '1 tsp', 0.20, 3], ['Rocket', '60g', 1.35, 0], ['Beef dripping', '1 tbsp', 1.60, 2]],
+    steps: ['Cut the potatoes into chips, parboil, then dry them thoroughly.', 'Roast or air-fry the chips hot in the dripping until deeply golden.', 'Chop the herbs fine and stir with garlic, chilli, vinegar and oil.', 'Sear the steak two minutes a side, then rest it for five.', 'Slice against the grain, spoon over the chimichurri, serve with rocket.'] },
+];
+
+const BY_ID = {};
+RECIPES.forEach(r => { BY_ID[r.id] = r; });
+RECIPES.forEach(r => { r.price = r.items.reduce((s, i) => s + i[2], 0); });
+
+const DAYNAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+const ALLDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const OPTS = {
+  market: ["Trader Joe's", 'Whole Foods', 'Safeway', 'Costco', 'Aldi'],
+  country: ['United States · USD', 'Canada · CAD', 'United Kingdom · GBP', 'France · EUR'],
+  cookTime: ['Under 20 min', 'Under 35 min', 'Under 50 min', 'No limit'],
+  days: ALLDAYS,
+  vibes: ['Speedy', 'Healthy comfort', 'Fakeaway', 'Family favourites', 'Protein-packed', 'Gut friendly', 'Low calorie', 'Treat night'],
+  proteins: ['Chicken', 'Beef', 'Pork', 'Fish', 'Tofu', 'Beans'],
+  dislikes: ['Blue cheese', 'Fennel', 'Liquorice', 'Coriander', 'Anchovies', 'Aubergine', 'Mushrooms'],
+  allergens: ['Peanuts', 'Shellfish', 'Tree nuts', 'Gluten', 'Dairy', 'Egg', 'Soy', 'Sesame'],
+  appliances: ['Hob', 'Oven', 'Air fryer', 'Microwave', 'Slow cooker', 'Blender'],
+};
+
+const money = n => '$' + n.toFixed(2);
+const flat = n => '$' + Math.round(n);
+
+const START = () => ({
+  tab: 'plan', view: null, recipeId: 'curry', sheet: null,
+  plan: { Mon: 'honeysoy', Tue: 'chilli', Wed: 'stirfry', Thu: null, Fri: null },
+  saved: ['curry', 'caesar', 'chopped'],
+  checked: ['Jasmine rice', 'Soy sauce', 'Garlic'],
+  skipped: [], serves: 1, note: '', query: '', savedFilter: 'All', toast: '',
+});
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = Object.assign(START(), {
+      prefs: {
+        country: 'United States · USD', market: props.marketName || "Trader Joe's",
+        household: props.householdSize || 1, days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+        budget: props.weeklyBudget || 80, cookTime: 'Under 35 min',
+        vibes: ['Healthy comfort', 'Fakeaway', 'Protein-packed'],
+        proteins: ['Chicken', 'Beef', 'Fish'],
+        dislikes: ['Blue cheese', 'Fennel', 'Liquorice'],
+        allergens: ['Peanuts', 'Shellfish'],
+        appliances: ['Hob', 'Oven', 'Air fryer'],
+      },
+    });
+  }
+
+  toast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  }
+
+  // ── derived ──
+  household() { return this.state.prefs.household; }
+  priceOf(id) { return BY_ID[id] ? BY_ID[id].price * this.household() : 0; }
+  days() { return this.state.prefs.days.filter(d => ALLDAYS.indexOf(d) !== -1); }
+  filledDays() { return this.days().filter(d => this.state.plan[d]); }
+  spent() { return this.filledDays().reduce((s, d) => s + this.priceOf(this.state.plan[d]), 0); }
+  remaining() { return this.state.prefs.budget - this.spent(); }
+
+  mergedList() {
+    const map = {}, h = this.household();
+    this.days().forEach(d => {
+      const id = this.state.plan[d]; if (!id) return;
+      BY_ID[id].items.forEach(it => {
+        const k = it[0];
+        if (!map[k]) map[k] = { name: k, cat: it[3], qtys: [], price: 0, days: [], recipes: [] };
+        map[k].qtys.push(it[1]);
+        map[k].price += it[2] * h;
+        map[k].days.push(d);
+        map[k].recipes.push(BY_ID[id].name);
+      });
+    });
+    return Object.keys(map).map(k => map[k]);
+  }
+
+  // ── navigation ──
+  go(tab) { this.setState({ tab, view: null, sheet: null }); }
+  openRecipe(id) { this.setState({ view: 'recipe', recipeId: id, sheet: null, serves: this.household(), note: '' }); }
+
+  // ── actions ──
+  toggleSave(id) {
+    const s = this.state.saved.slice(), i = s.indexOf(id);
+    if (i === -1) { s.push(id); this.toast('Saved. Find it under Saved.'); } else { s.splice(i, 1); this.toast('Removed from Saved.'); }
+    this.setState({ saved: s });
+  }
+
+  openAssign(id) {
+    this.setState({ sheet: { kind: 'days', mode: 'assign', recipeId: id, pick: null } });
+  }
+  openSwap(day) {
+    this.setState({ sheet: { kind: 'days', mode: 'swap', day: day, pick: null } });
+  }
+  openPref(key, cfg) {
+    const v = this.state.prefs[key];
+    this.setState({ sheet: Object.assign({ kind: cfg.kind, mode: 'pref', prefKey: key, draft: Array.isArray(v) ? v.slice() : v }, cfg) });
+  }
+  closeSheet() { this.setState({ sheet: null }); }
+
+  confirmSheet() {
+    const sh = this.state.sheet; if (!sh) return;
+    if (sh.mode === 'assign') {
+      if (!sh.pick) return;
+      const plan = Object.assign({}, this.state.plan);
+      const had = plan[sh.pick];
+      plan[sh.pick] = sh.recipeId;
+      this.setState({ plan, sheet: null, tab: 'plan', view: null });
+      this.toast((had ? 'Replaced ' : 'Added to ') + DAYNAMES[sh.pick] + ' · ' + money(this.spentAfter(sh)) + ' this week');
+    } else if (sh.mode === 'swap') {
+      if (!sh.pick) return;
+      const plan = Object.assign({}, this.state.plan);
+      plan[sh.day] = sh.pick;
+      this.setState({ plan, sheet: null, tab: 'plan', view: null });
+      this.toast(DAYNAMES[sh.day] + ' is now ' + BY_ID[sh.pick].name);
+    } else if (sh.mode === 'pref') {
+      const prefs = Object.assign({}, this.state.prefs);
+      prefs[sh.prefKey] = Array.isArray(sh.draft) ? sh.draft.slice() : sh.draft;
+      if (sh.prefKey === 'days') {
+        const plan = Object.assign({}, this.state.plan);
+        prefs.days = ALLDAYS.filter(d => prefs.days.indexOf(d) !== -1);
+        prefs.days.forEach(d => { if (!(d in plan)) plan[d] = null; });
+        this.setState({ prefs, plan, sheet: null });
+      } else {
+        this.setState({ prefs, sheet: null });
+      }
+      this.toast(sh.title + ' updated');
+    }
+  }
+
+  spentAfter(sh) {
+    if (!sh) return this.spent();
+    if (sh.mode === 'assign' && sh.pick) {
+      const had = this.state.plan[sh.pick];
+      return this.spent() - (had ? this.priceOf(had) : 0) + this.priceOf(sh.recipeId);
+    }
+    if (sh.mode === 'swap' && sh.pick) {
+      return this.spent() - this.priceOf(this.state.plan[sh.day]) + this.priceOf(sh.pick);
+    }
+    return this.spent();
+  }
+
+  autoFill() {
+    const plan = Object.assign({}, this.state.plan);
+    const open = this.days().filter(d => !plan[d]);
+    if (!open.length) { this.toast('Every day already has a dinner.'); return; }
+    const used = this.days().map(d => plan[d]).filter(Boolean);
+    const pool = RECIPES.filter(r => used.indexOf(r.id) === -1 && this.state.skipped.indexOf(r.id) === -1)
+      .slice().sort((a, b) => a.price - b.price);
+    let budget = this.remaining(), n = 0;
+    open.forEach(d => {
+      const pick = pool.find(r => r.price * this.household() <= budget && used.indexOf(r.id) === -1);
+      if (pick) { plan[d] = pick.id; used.push(pick.id); budget -= pick.price * this.household(); n++; }
+    });
+    this.setState({ plan, tab: 'plan', view: null, sheet: null });
+    this.toast(n + (n === 1 ? ' dinner' : ' dinners') + ' filled in, ' + money(budget) + ' still spare');
+  }
+
+  toggleItem(name) {
+    const c = this.state.checked.slice(), i = c.indexOf(name);
+    if (i === -1) c.push(name); else c.splice(i, 1);
+    this.setState({ checked: c });
+  }
+
+  skip(id) {
+    this.setState({ skipped: this.state.skipped.concat([id]) });
+    this.toast('Noted. Fewer like that.');
+  }
+
+  // ── view model ──
+  planRows() {
+    return this.days().map(d => {
+      const id = this.state.plan[d], r = id ? BY_ID[id] : null;
+      const h = this.household();
+      if (!r) {
+        return {
+          dayLong: DAYNAMES[d], dayShort: d, filled: false, isEmpty: true,
+          hint: 'Around ' + flat(Math.max(6, this.remaining() / Math.max(1, this.days().length - this.filledDays().length))) + ' left per open day',
+          onFill: () => this.go('discover'),
+        };
+      }
+      return {
+        dayLong: DAYNAMES[d], dayShort: d, filled: true, isEmpty: false,
+        name: r.name, photo: r.photo, tags: r.tags,
+        timeStr: r.min + 'm', servesStr: 'serves ' + h, priceStr: money(r.price * h),
+        onOpen: () => this.openRecipe(r.id),
+        onSwap: () => this.openSwap(d),
+        onClear: () => { const p = Object.assign({}, this.state.plan); p[d] = null; this.setState({ plan: p }); this.toast(DAYNAMES[d] + ' cleared'); },
+      };
+    });
+  }
+
+  fitOf(price) {
+    const rem = this.remaining();
+    if (price > rem) return { fitLabel: money(price - rem) + ' over your budget', fitBg: 'rgba(252,227,220,.94)', fitDot: '#C4472C', fitColor: '#8C2A17' };
+    if (price > rem * 0.55) return { fitLabel: 'Tight, but it fits', fitBg: 'rgba(253,240,210,.94)', fitDot: '#B98307', fitColor: '#7A5604' };
+    return { fitLabel: 'Fits your budget', fitBg: 'rgba(220,243,225,.94)', fitDot: '#186B2C', fitColor: '#0E2A1C' };
+  }
+
+  feed() {
+    const h = this.household(), used = this.days().map(d => this.state.plan[d]);
+    return RECIPES.filter(r => used.indexOf(r.id) === -1 && this.state.skipped.indexOf(r.id) === -1).map(r => {
+      const saved = this.state.saved.indexOf(r.id) !== -1;
+      return Object.assign({
+        name: r.name, photo: r.photo, tags: r.tags, why: r.why, src: r.src,
+        timeStr: r.min + 'm', servesStr: 'serves ' + h,
+        priceStr: money(r.price * h), showPerServe: h > 1, perServeStr: '· ' + money(r.price) + ' a serving',
+        saveLabel: saved ? 'Saved' : 'Save',
+        saveBg: saved ? '#FFFFFF' : 'rgba(255,255,255,.17)',
+        saveStroke: saved ? '#E4553A' : '#FFFFFF',
+        saveFill: saved ? '#E4553A' : 'none',
+        onSave: () => this.toggleSave(r.id),
+        onAdd: () => this.openAssign(r.id),
+        onOpen: () => this.openRecipe(r.id),
+        onSkip: () => this.skip(r.id),
+        onShare: () => this.toast('Link copied'),
+      }, this.fitOf(r.price * h));
+    });
+  }
+
+  savedVm() {
+    const h = this.household(), q = this.state.query.toLowerCase();
+    let ids = this.state.saved.slice();
+    if (this.state.savedFilter === 'Recently saved') ids = ids.slice(-2);
+    if (this.state.savedFilter === 'Cooked before') ids = ids.filter(id => ['curry', 'carbonara'].indexOf(id) !== -1);
+    if (this.state.savedFilter === 'Imported') ids = [];
+    return ids.map(id => BY_ID[id]).filter(r => r && r.name.toLowerCase().indexOf(q) !== -1).map(r => ({
+      name: r.name, photo: r.photo, tags: r.tags, src: r.src,
+      timeStr: r.min + 'm', priceStr: money(r.price * h),
+      saveFillDark: '#0E2A1C',
+      onOpen: () => this.openRecipe(r.id),
+      onAdd: () => this.openAssign(r.id),
+      onSave: () => this.toggleSave(r.id),
+    }));
+  }
+
+  prefGroups() {
+    const p = this.state.prefs;
+    const row = (label, value, effect, key, cfg, danger) => ({
+      label, value, effect,
+      bg: danger ? '#FFF7F5' : '#FFFFFF',
+      border: danger ? 'rgba(196,58,36,.18)' : 'rgba(14,42,28,.07)',
+      valueColor: danger ? '#8C2A17' : '#6E6A62',
+      effectBg: danger ? '#FCE3DC' : '#E9F6ED',
+      effectColor: danger ? '#8C2A17' : '#186B2C',
+      onClick: () => this.openPref(key, cfg),
+    });
+    const listStr = a => a.length ? a.join(', ') : 'None yet';
+    return [
+      { label: 'The week', labelColor: '#8F8B82', rule: 'rgba(14,42,28,.09)', hasNote: false, rows: [
+        row('Supermarket', p.market, 'Prices', 'market', { kind: 'options', multi: false, options: OPTS.market, title: 'Supermarket', sub: 'Prices and the shopping list follow this store.', foot: 'Every estimate on the plan is priced against this store.' }),
+        row('Country & currency', p.country, 'Prices', 'country', { kind: 'options', multi: false, options: OPTS.country, title: 'Country & currency', sub: 'Sets units and currency.', foot: 'Also switches between metric and US measures.' }),
+        row('Household size', p.household + (p.household === 1 ? ' person' : ' people'), 'Portions', 'household', { kind: 'number', min: 1, max: 8, step: 1, unit: 'people at the table', title: 'Household size', sub: 'Every ingredient quantity and price scales from this.', foot: 'Ingredients, prices and the shopping list all scale together.' }),
+        row('Cooking days', p.days.length + ' dinners · ' + p.days.join(', '), 'Plan', 'days', { kind: 'options', multi: true, options: OPTS.days, title: 'Cooking days', sub: 'Which nights should we plan for?', foot: 'Days you drop keep their meal in case you add them back.' }),
+        row('Weekly budget', flat(p.budget) + ' · about ' + flat(p.budget / Math.max(1, p.days.length)) + ' a dinner', 'Budget', 'budget', { kind: 'number', min: 40, max: 240, step: 10, unit: 'a week on dinners', title: 'Weekly budget', sub: 'We keep the plan under this and flag anything that breaks it.', foot: 'Recipes over your remaining budget stay visible, but clearly marked.' }),
+        row('Cooking time', p.cookTime, 'Ranking', 'cookTime', { kind: 'options', multi: false, options: OPTS.cookTime, title: 'Cooking time', sub: 'How long do you want to spend on a weeknight?', foot: 'Longer recipes still appear at weekends.' }),
+      ] },
+      { label: 'Taste', labelColor: '#8F8B82', rule: 'rgba(14,42,28,.09)', hasNote: false, rows: [
+        row('Meal vibes', listStr(p.vibes), 'Ranking', 'vibes', { kind: 'options', multi: true, options: OPTS.vibes, title: 'Meal vibes', sub: 'Pick the moods you cook in.', foot: 'These lift matching recipes up the feed. Nothing gets excluded.' }),
+        row('Preferred proteins', listStr(p.proteins), 'Ranking', 'proteins', { kind: 'options', multi: true, options: OPTS.proteins, title: 'Preferred proteins', sub: 'We lean the week towards these.', foot: 'A soft preference, not a filter.' }),
+        row('Dislikes', listStr(p.dislikes), 'Ranking', 'dislikes', { kind: 'options', multi: true, options: OPTS.dislikes, title: 'Dislikes', sub: 'Things you would rather not eat.', foot: 'Recipes with these drop down the feed but remain available.' }),
+      ] },
+      { label: 'Medical allergens', labelColor: '#8C2A17', rule: 'rgba(196,58,36,.2)', hasNote: true,
+        note: 'Recipes containing these are removed from the feed entirely — never just ranked lower. Dislikes are handled separately above.',
+        rows: [row('Allergens to exclude', listStr(p.allergens), 'Eligibility', 'allergens', { kind: 'options', multi: true, options: OPTS.allergens, title: 'Medical allergens', sub: 'Anything containing these is excluded outright.', foot: 'Applied to every recipe, every substitution and every auto-filled day.' }, true)] },
+      { label: 'Kitchen', labelColor: '#8F8B82', rule: 'rgba(14,42,28,.09)', hasNote: false, rows: [
+        row('Appliances', listStr(p.appliances), 'Eligibility', 'appliances', { kind: 'options', multi: true, options: OPTS.appliances, title: 'Kitchen appliances', sub: 'We only suggest food you can actually cook.', foot: 'Recipes needing equipment you do not have are hidden.' }),
+      ] },
+    ];
+  }
+
+  recipeVm() {
+    const r = BY_ID[this.state.recipeId] || RECIPES[0];
+    const h = this.household();
+    const day = this.days().find(d => this.state.plan[d] === r.id);
+    return {
+      name: r.name, photo: r.photo, src: r.src, kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat,
+      priceStr: money(r.price * h), perServeStr: money(r.price) + ' a serving', timeStr: r.min + 'm',
+      scheduled: !!day, unscheduled: !day, dayLong: day ? DAYNAMES[day] : '',
+      saveFillDark: this.state.saved.indexOf(r.id) !== -1 ? '#E4553A' : 'none',
+      onSave: () => this.toggleSave(r.id),
+      onAdd: () => this.openAssign(r.id),
+      onSwap: () => this.openSwap(day),
+    };
+  }
+
+  ingredientsVm() {
+    const r = BY_ID[this.state.recipeId] || RECIPES[0];
+    const n = this.state.serves || 1;
+    const dots = ['#5BAE4F', '#C4472C', '#4E8FD1', '#B98307'];
+    return r.items.map(it => ({
+      name: it[0], dot: dots[it[3]],
+      qtyStr: n === 1 ? it[1] : it[1] + ' × ' + n,
+    }));
+  }
+
+  listVm() {
+    const items = this.mergedList();
+    const done = items.filter(i => this.state.checked.indexOf(i.name) !== -1).length;
+    const cats = CAT.map((name, ci) => {
+      const rows = items.filter(i => i.cat === ci).map(i => {
+        const isDone = this.state.checked.indexOf(i.name) !== -1;
+        const same = i.qtys.every(q => q === i.qtys[0]);
+        const qty = i.qtys.length === 1 ? i.qtys[0] : (same ? i.qtys[0] + ' × ' + i.qtys.length : i.qtys.join(' + '));
+        const uniqueDays = i.days.filter((d, k) => i.days.indexOf(d) === k);
+        return {
+          name: i.name, qtyStr: qty, priceStr: money(i.price), done: isDone,
+          forStr: uniqueDays.length > 1 ? uniqueDays.join(' · ') : uniqueDays[0] + ' · ' + i.recipes[0],
+          boxBg: isDone ? '#3FBE55' : '#FFFFFF', boxBorder: isDone ? '#3FBE55' : '#D2CBBB',
+          rowBg: isDone ? '#FCFAF5' : '#FFFFFF',
+          nameColor: isDone ? '#A09B92' : '#1D1B18',
+          strike: isDone ? 'line-through' : 'none',
+          onToggle: () => this.toggleItem(i.name),
+        };
+      });
+      return { name, items: rows, countStr: rows.filter(r => r.done).length + '/' + rows.length };
+    }).filter(c => c.items.length);
+    return { cats, done, total: items.length };
+  }
+
+  sheetVm() {
+    const sh = this.state.sheet; if (!sh) return null;
+    const h = this.household();
+    if (sh.mode === 'assign' || sh.mode === 'swap') {
+      const after = this.spentAfter(sh), budget = this.state.prefs.budget;
+      const over = after > budget;
+      let rows;
+      if (sh.mode === 'assign') {
+        const r = BY_ID[sh.recipeId];
+        rows = this.days().map(d => {
+          const cur = this.state.plan[d], sel = sh.pick === d;
+          return {
+            short: d, long: DAYNAMES[d],
+            sub: cur ? 'Replaces ' + BY_ID[cur].name : 'Free — nothing planned',
+            subColor: cur ? '#B98307' : '#186B2C',
+            selected: sel,
+            bg: sel ? '#DCF3E1' : '#FFFFFF', border: sel ? '#3FBE55' : 'rgba(14,42,28,.08)',
+            chipBg: sel ? '#3FBE55' : '#F2EBDC', chipColor: sel ? '#FFFFFF' : '#0E2A1C',
+            onClick: () => this.setState({ sheet: Object.assign({}, sh, { pick: d }) }),
+          };
+        });
+        return {
+          kind: 'days', title: 'Add to your week', sub: 'Pick the night you want to cook it.',
+          recipeName: r.name, photo: r.photo, recipeMeta: r.min + 'm · serves ' + h + ' · ' + money(r.price * h),
+          days: rows, afterStr: money(after) + ' of ' + flat(budget),
+          basePct: Math.min(100, (this.spent() / budget) * 100) + '%',
+          deltaPct: Math.min(100 - Math.min(100, (this.spent() / budget) * 100), (this.priceOf(sh.recipeId) / budget) * 100) + '%',
+          deltaColor: over ? '#C4472C' : '#3FBE55',
+          effect: sh.pick
+            ? (over ? money(after - budget) + ' over budget — swap something cheaper afterwards' : money(budget - after) + ' still spare after this')
+            : 'Choose a night to see the effect on your week',
+          effectColor: sh.pick ? (over ? '#8C2A17' : '#186B2C') : '#8F8B82',
+          cta: sh.pick ? (this.state.plan[sh.pick] ? 'Replace ' + DAYNAMES[sh.pick] + "'s dinner" : 'Add to ' + DAYNAMES[sh.pick]) : 'Choose a day',
+          ctaBg: sh.pick ? '#3FBE55' : '#E4DCCA', ctaColor: sh.pick ? '#FFFFFF' : '#A09B92',
+          ctaShadow: sh.pick ? '0 14px 28px -16px rgba(63,190,85,.9)' : 'none',
+        };
+      }
+      const cur = BY_ID[this.state.plan[sh.day]];
+      const used = this.days().map(d => this.state.plan[d]);
+      const cands = RECIPES.filter(r => used.indexOf(r.id) === -1).slice(0, 5);
+      rows = cands.map(r => {
+        const sel = sh.pick === r.id, delta = r.price * h - cur.price * h;
+        return {
+          short: money(r.price * h).replace('$', '$'), long: r.name,
+          sub: r.min + 'm · ' + (delta === 0 ? 'same price' : (delta > 0 ? money(delta) + ' more' : money(-delta) + ' cheaper')),
+          subColor: delta > 0 ? '#B98307' : '#186B2C',
+          selected: sel,
+          bg: sel ? '#DCF3E1' : '#FFFFFF', border: sel ? '#3FBE55' : 'rgba(14,42,28,.08)',
+          chipBg: sel ? '#3FBE55' : '#F2EBDC', chipColor: sel ? '#FFFFFF' : '#0E2A1C',
+          onClick: () => this.setState({ sheet: Object.assign({}, sh, { pick: r.id }) }),
+        };
+      });
+      return {
+        kind: 'days', title: 'Swap ' + DAYNAMES[sh.day], sub: 'Currently ' + cur.name + '. Pick a replacement.',
+        days: rows, afterStr: money(after) + ' of ' + flat(budget),
+        basePct: Math.min(100, (Math.min(this.spent(), after) / budget) * 100) + '%',
+        deltaPct: Math.abs(after - this.spent()) / budget * 100 + '%',
+        deltaColor: after > this.spent() ? (over ? '#C4472C' : '#B98307') : '#8FE7A8',
+        effect: sh.pick ? (over ? money(after - budget) + ' over budget' : money(budget - after) + ' still spare after this') : 'Pick a replacement to see the effect',
+        effectColor: sh.pick ? (over ? '#8C2A17' : '#186B2C') : '#8F8B82',
+        cta: sh.pick ? 'Swap in ' + BY_ID[sh.pick].name.split(',')[0] : 'Pick a replacement',
+        ctaBg: sh.pick ? '#0E2A1C' : '#E4DCCA', ctaColor: sh.pick ? '#FBF5EA' : '#A09B92', ctaShadow: 'none',
+      };
+    }
+    if (sh.kind === 'options') {
+      const draft = sh.draft;
+      const isOn = o => sh.multi ? draft.indexOf(o) !== -1 : draft === o;
+      return {
+        kind: 'options', title: sh.title, sub: sh.sub, foot: sh.foot,
+        options: sh.options.map(o => ({
+          label: sh.prefKey === 'days' ? DAYNAMES[o] : o,
+          bg: isOn(o) ? '#DCF3E1' : '#FFFFFF', color: isOn(o) ? '#0E2A1C' : '#4A4741',
+          border: isOn(o) ? '#3FBE55' : 'rgba(14,42,28,.1)',
+          onClick: () => {
+            let next;
+            if (sh.multi) { next = draft.slice(); const i = next.indexOf(o); if (i === -1) next.push(o); else next.splice(i, 1); }
+            else next = o;
+            this.setState({ sheet: Object.assign({}, sh, { draft: next }) });
+          },
+        })),
+      };
+    }
+    const isMoney = sh.prefKey === 'budget';
+    return {
+      kind: 'number', title: sh.title, sub: sh.sub, foot: sh.foot,
+      numStr: isMoney ? flat(sh.draft) : String(sh.draft), numUnit: sh.unit,
+      onDown: () => this.setState({ sheet: Object.assign({}, sh, { draft: Math.max(sh.min, sh.draft - sh.step) }) }),
+      onUp: () => this.setState({ sheet: Object.assign({}, sh, { draft: Math.min(sh.max, sh.draft + sh.step) }) }),
+    };
+  }
+
+  renderVals() {
+    const st = this.state, p = st.prefs, h = p.household;
+    const spent = this.spent(), rem = this.remaining();
+    const list = this.listVm();
+    const filled = this.filledDays().length, total = this.days().length;
+    const pct = Math.min(100, (spent / p.budget) * 100);
+    const listPct = list.total ? (list.done / list.total) * 100 : 0;
+    const circ = 2 * Math.PI * 19;
+    const hour = 19;
+    const vm = {
+      greeting: hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening'),
+      planHeadline: filled >= total ? 'Your week is\nready to shop' : (filled === 0 ? "Let's fill\nthe week" : 'Your week is\nnearly set'),
+      market: p.market, marketInitials: p.market.replace(/[^A-Z]/g, '').slice(0, 2) || 'TJ',
+      weekRange: 'Mon 31 Aug – Sun 6 Sep',
+      spentStr: money(spent), budgetStr: flat(p.budget), remainStr: money(Math.max(0, rem)) + ' left',
+      budgetPct: pct + '%',
+      budgetDot: spent > p.budget ? '#E4553A' : (pct > 85 ? '#E9B23C' : '#8FE7A8'),
+      budgetNote: spent > p.budget
+        ? money(spent - p.budget) + ' over — swap a meal to recover'
+        : (filled < total ? 'About ' + flat(rem / Math.max(1, total - filled)) + ' per remaining dinner' : 'Comfortably inside your budget'),
+      listProgressStr: list.done + ' of ' + list.total + ' items',
+      listPctStr: Math.round(listPct) + '%',
+      listDash: (circ * listPct / 100).toFixed(1) + ' ' + circ.toFixed(1),
+      dinnersLeftStr: filled >= total ? 'All ' + total + ' planned' : (total - filled) + (total - filled === 1 ? ' dinner left' : ' dinners left'),
+      weekIncomplete: filled < total,
+      buildSub: (total - filled) + ' nights to fill · ' + money(Math.max(0, rem)) + ' to play with',
+      planRows: this.planRows(),
+      feed: this.feed(),
+      dinnersProgressStr: filled + ' of ' + total + ' dinners chosen',
+      dinnersPct: (total ? (filled / total) * 100 : 0) + '%',
+      plannedShortStr: money(spent) + '/' + flat(p.budget),
+      savedCountStr: st.saved.length + (st.saved.length === 1 ? ' recipe' : ' recipes') + ' · tap to add one to a day',
+      query: st.query, onQuery: e => this.setState({ query: e.target.value }),
+      savedFilters: ['All', 'Recently saved', 'Cooked before', 'Imported'].map(f => ({
+        label: f,
+        bg: st.savedFilter === f ? '#0E2A1C' : '#FFFFFF',
+        color: st.savedFilter === f ? '#FBF5EA' : '#4A4741',
+        border: st.savedFilter === f ? '#0E2A1C' : 'rgba(14,42,28,.1)',
+        onClick: () => this.setState({ savedFilter: f }),
+      })),
+      collections: [
+        { name: 'Fast nights', initial: 'F', tint: '#DCF3E1', countStr: '6 recipes' },
+        { name: 'Batch cook', initial: 'B', tint: '#FDF0D2', countStr: '4 recipes' },
+        { name: 'Feed friends', initial: 'FF', tint: '#FCE3DC', countStr: '3 recipes' },
+      ],
+      onNewCollection: () => this.toast('New collection created'),
+      savedList: this.savedVm(),
+      savedEmpty: this.savedVm().length === 0,
+      savedEmptyTitle: st.savedFilter === 'Imported' ? 'No imported recipes' : 'Nothing saved yet',
+      savedEmptyBody: st.savedFilter === 'Imported'
+        ? 'Paste a link from anywhere and we will pull out the ingredients, price them at your store and scale the portions.'
+        : 'Tap the heart on any recipe in Discover and it lands here, ready to drop into a day.',
+      prefsSummary: h + (h === 1 ? ' person' : ' people') + ' · ' + p.days.length + ' dinners a week · ' + flat(p.budget) + ' at ' + p.market + ' · ' + p.cookTime.toLowerCase(),
+      prefGroups: this.prefGroups(),
+      recipe: this.recipeVm(),
+      recipeIngredients: this.ingredientsVm(),
+      recipeSteps: (BY_ID[st.recipeId] || RECIPES[0]).steps.map((t, i) => ({ n: i + 1, text: t })),
+      servesN: String(st.serves || 1),
+      servesLabel: 'serves ' + (st.serves || 1),
+      onServesUp: () => this.setState({ serves: Math.min(8, (st.serves || 1) + 1) }),
+      onServesDown: () => this.setState({ serves: Math.max(1, (st.serves || 1) - 1) }),
+      note: st.note, onNote: e => this.setState({ note: e.target.value }),
+      recipeBack: () => this.setState({ view: null }),
+      listCats: list.cats, listEmpty: list.total === 0,
+      listSub: p.market + ' · ' + this.filledDays().length + ' dinners',
+      listPct: listPct + '%',
+      onShareList: () => this.toast('List shared'),
+      onAddItem: () => this.toast('Custom item added'),
+      settingsRows: [
+        { label: 'Notifications', value: 'Sunday 5pm' },
+        { label: 'Measurement units', value: 'US customary' },
+        { label: 'Connected stores', value: p.market },
+        { label: 'Import a recipe', value: 'From a link' },
+        { label: 'Subscription', value: 'Weeknight Plus' },
+        { label: 'Privacy & data', value: '' },
+        { label: 'Help', value: '' },
+      ],
+      goPlan: () => this.go('plan'), goDiscover: () => this.go('discover'),
+      goSaved: () => this.go('saved'), goPrefs: () => this.go('prefs'),
+      goSettings: () => this.setState({ view: 'settings', sheet: null }),
+      goList: () => this.setState({ view: 'list', sheet: null }),
+      openMarket: () => this.openPref('market', { kind: 'options', multi: false, options: OPTS.market, title: 'Supermarket', sub: 'Prices and the shopping list follow this store.', foot: 'Every estimate on the plan is priced against this store.' }),
+      autoFill: () => this.autoFill(),
+      closeSheet: () => this.closeSheet(),
+      confirmSheet: () => this.confirmSheet(),
+      toast: st.toast,
+    };
+
+    const liveScreen = st.view || st.tab;
+    const demoRecipe = BY_ID['carbonara'];
+    const demoSheet = {
+      kind: 'days', title: 'Add to your week', sub: 'Pick the night you want to cook it.',
+      recipeName: demoRecipe.name, photo: demoRecipe.photo,
+      recipeMeta: demoRecipe.min + 'm · serves ' + h + ' · ' + money(demoRecipe.price * h),
+      days: this.days().map(d => {
+        const cur = st.plan[d], sel = d === 'Thu';
+        return {
+          short: d, long: DAYNAMES[d],
+          sub: cur ? 'Replaces ' + BY_ID[cur].name : 'Free — nothing planned',
+          subColor: cur ? '#B98307' : '#186B2C', selected: sel,
+          bg: sel ? '#DCF3E1' : '#FFFFFF', border: sel ? '#3FBE55' : 'rgba(14,42,28,.08)',
+          chipBg: sel ? '#3FBE55' : '#F2EBDC', chipColor: sel ? '#FFFFFF' : '#0E2A1C',
+          onClick: () => {},
+        };
+      }),
+      afterStr: money(spent + demoRecipe.price * h) + ' of ' + flat(p.budget),
+      basePct: pct + '%', deltaPct: (demoRecipe.price * h / p.budget) * 100 + '%', deltaColor: '#3FBE55',
+      effect: money(Math.max(0, rem - demoRecipe.price * h)) + ' still spare after this',
+      effectColor: '#186B2C', cta: 'Add to Thursday',
+      ctaBg: '#3FBE55', ctaColor: '#FFFFFF', ctaShadow: '0 14px 28px -16px rgba(63,190,85,.9)',
+    };
+
+    return {
+      vm, w390: 390, h844: 844,
+      liveScreen, liveSheet: this.sheetVm(),
+      boardFrames: [
+        { n: '01', title: 'Plan — home', screen: 'plan', note: 'Week, store, budget and list in the first screenful; one card per cooking day; empty days invite a pick.' },
+        { n: '02', title: 'Discover', screen: 'discover', note: 'Full-bleed feed. Actions are visible, not gestural. The pill at the top always shows dinners chosen and money spent.' },
+        { n: '03', title: 'Add to week', screen: 'discover', sheet: demoSheet, note: 'Day picker with what each night currently holds, the effect on the budget, and a single confirming verb.' },
+        { n: '04', title: 'Saved', screen: 'saved', note: 'Search, four views, collections. Add to a day straight from the card — no need to open the recipe.' },
+        { n: '05', title: 'Preferences', screen: 'prefs', note: 'Summary cards grouped by what they affect. Each row is tagged with its influence; allergens are set apart in red.' },
+        { n: '06', title: 'Recipe detail', screen: 'recipe', note: 'Media, cost per serving, macros, ingredients scaled live to the household, numbered method, notes.' },
+        { n: '07', title: 'Shopping list', screen: 'list', note: 'Grouped by aisle, merged quantities, the day and recipe each item is for, and clear bought states.' },
+      ],
+      walkthrough: [
+        { n: '1', text: 'Plan opens on the week: $35.40 of $80, three dinners set, Thursday and Friday open.' },
+        { n: '2', text: 'Tap Build your week — or an empty day — to drop into the Discover feed.' },
+        { n: '3', text: 'Scroll the feed, then hit Add to week on anything that fits.' },
+        { n: '4', text: 'In the sheet, pick a night. The budget bar previews the change before you commit.' },
+        { n: '5', text: 'Back on Plan the numbers have moved, and the list has grown its new ingredients.' },
+        { n: '6', text: 'Open the shopping list and check items off, or swap a scheduled meal for something cheaper.' },
+      ],
+      liveStats: [
+        { value: filled + '/' + total, label: 'dinners planned' },
+        { value: money(spent), label: 'of ' + flat(p.budget) + ' budget' },
+        { value: list.done + '/' + list.total, label: 'items bought' },
+        { value: String(st.saved.length), label: 'recipes saved' },
+      ],
+      devNotes: [
+        { head: 'One source of truth', body: 'plan is a day → recipeId map. Budget, list and progress are all derived from it, never stored separately.' },
+        { head: 'List merging', body: 'Ingredients aggregate by name across scheduled recipes; identical quantities collapse to "3 cloves × 2" and carry the days they belong to.' },
+        { head: 'Portion scaling', body: 'Household size multiplies quantity and price at render time. Recipe cost per serving stays constant.' },
+        { head: 'Allergens vs dislikes', body: 'Allergens are a hard filter applied before ranking; dislikes only reweight. Keep them in separate fields so the rule stays enforceable.' },
+        { head: 'Budget states', body: 'Three thresholds: comfortable, within 15% of the limit, and over. The over state always offers a swap, never a dead end.' },
+        { head: 'Sheets', body: 'Add-to-week, swap and every preference edit use one sheet component with three body types: choice rows, option chips, numeric stepper.' },
+      ],
+      swatches: [
+        { name: 'Forest', hex: '#0E2A1C', use: 'Text, dark surfaces' },
+        { name: 'Deep pine', hex: '#143824', use: 'Gradient top' },
+        { name: 'Leaf', hex: '#3FBE55', use: 'Primary action' },
+        { name: 'Bottle', hex: '#186B2C', use: 'Green text, icons' },
+        { name: 'Mint', hex: '#8FE7A8', use: 'Positive on dark' },
+        { name: 'Wash', hex: '#DCF3E1', use: 'Selected, tints' },
+        { name: 'Cream', hex: '#FBF5EA', use: 'App canvas' },
+        { name: 'Sand', hex: '#EDE5D5', use: 'Tracks, dividers' },
+        { name: 'Citrus', hex: '#E9B23C', use: 'Caution, near limit' },
+        { name: 'Tomato', hex: '#E4553A', use: 'Over budget, saved' },
+        { name: 'Ink', hex: '#1D1B18', use: 'Body copy' },
+        { name: 'Stone', hex: '#8F8B82', use: 'Meta, labels' },
+      ],
+      resetDemo: () => this.setState(START()),
+    };
+  }
+}
+</script>
+</body>
+</html>
