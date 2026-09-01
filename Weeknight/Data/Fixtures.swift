@@ -40,7 +40,12 @@ enum WeeknightFixture {
                 item("sesame-seeds", "Sesame seeds", .pantry, "1 tsp", 25),
                 item("spring-onions", "Spring onions", .produce, "2", 60),
             ],
-            artwork: .honeySoy
+            artwork: .honeySoy,
+            methodSteps: [
+                "Cook the rice until tender, then cover and keep warm.",
+                "Brown the chicken in a wide pan, add broccoli, garlic, soy and honey, and simmer until glossy and cooked through.",
+                "Spoon over the rice and finish with spring onions and sesame seeds.",
+            ]
         ),
         Recipe(
             id: "chilli",
@@ -61,7 +66,12 @@ enum WeeknightFixture {
                 item("sour-cream", "Sour cream", .chilledAndDairy, "1 pot", 165),
                 item("long-grain-rice", "Long-grain rice", .pantry, "150g", 90),
             ],
-            artwork: .chilli
+            artwork: .chilli,
+            methodSteps: [
+                "Soften the onion and pepper, then brown the beef mince.",
+                "Stir in chipotle and cumin, add tomatoes and beans, and simmer until thick.",
+                "Serve with rice and a spoonful of sour cream.",
+            ]
         ),
         Recipe(
             id: "stirfry",
@@ -83,7 +93,12 @@ enum WeeknightFixture {
                 item("lime", "Lime", .produce, "1", 45),
                 item("crispy-shallots", "Crispy shallots", .pantry, "30g", 80),
             ],
-            artwork: .stirFry
+            artwork: .stirFry,
+            methodSteps: [
+                "Soak or cook the noodles according to the packet, then drain well.",
+                "Crisp the tofu, then stir-fry the vegetables with ginger and garlic.",
+                "Toss everything with soy, sesame oil and lime; top with crispy shallots.",
+            ]
         ),
         Recipe(
             id: "carbonara",
@@ -101,7 +116,12 @@ enum WeeknightFixture {
                 item("black-pepper", "Black pepper", .pantry, "1 tsp", 25),
                 item("parmesan", "Parmesan", .chilledAndDairy, "20g", 195),
             ],
-            artwork: .carbonara
+            artwork: .carbonara,
+            methodSteps: [
+                "Cook the spaghetti in salted water and reserve a mug of pasta water.",
+                "Crisp the pancetta while whisking the eggs, pecorino, parmesan and black pepper in a bowl.",
+                "Off the heat, toss hot pasta with the egg mixture and enough pasta water to make a silky sauce.",
+            ]
         ),
         Recipe(
             id: "curry",
@@ -123,7 +143,12 @@ enum WeeknightFixture {
                 item("coriander", "Coriander", .produce, "1 bunch", 90),
                 item("spinach", "Spinach", .produce, "100g", 40),
             ],
-            artwork: .curry
+            artwork: .curry,
+            methodSteps: [
+                "Soften the onion, then add garlic, ginger and curry powder until fragrant.",
+                "Brown the chicken, add tomatoes and coconut milk, and simmer until the chicken is cooked through.",
+                "Fold in the spinach and serve with basmati rice and coriander.",
+            ]
         ),
         Recipe(
             id: "caesar",
@@ -142,7 +167,12 @@ enum WeeknightFixture {
                 item("egg", "Egg", .chilledAndDairy, "1", 35),
                 item("lemon", "Lemon", .produce, "1", 40),
             ],
-            artwork: .caesar
+            artwork: .caesar,
+            methodSteps: [
+                "Char the chicken until golden and cooked through, then rest and slice.",
+                "Toast the sourdough and whisk a dressing from anchovy, egg, lemon and parmesan.",
+                "Toss the romaine with dressing and croutons, then top with chicken.",
+            ]
         ),
         Recipe(
             id: "chopped",
@@ -163,7 +193,12 @@ enum WeeknightFixture {
                 item("red-wine-vinegar", "Red wine vinegar", .pantry, "1 tbsp", 30),
                 item("sunflower-seeds", "Sunflower seeds", .pantry, "20g", 30),
             ],
-            artwork: .chopped
+            artwork: .chopped,
+            methodSteps: [
+                "Chop the cucumber, tomatoes, onion and dill into bite-sized pieces.",
+                "Drain the chickpeas and toss with the vegetables, olives and sunflower seeds.",
+                "Dress with red wine vinegar, fold in the feta, and season to taste.",
+            ]
         ),
         Recipe(
             id: "steak",
@@ -185,7 +220,12 @@ enum WeeknightFixture {
                 item("rocket", "Rocket", .produce, "60g", 135),
                 item("beef-dripping", "Beef dripping", .chilledAndDairy, "1 tbsp", 160),
             ],
-            artwork: .steak
+            artwork: .steak,
+            methodSteps: [
+                "Cut the potatoes into fries and roast until crisp.",
+                "Mix parsley, coriander, garlic, vinegar, chilli and olive oil for the chimichurri.",
+                "Sear the steak to your preferred doneness, rest it, then serve with fries, rocket and chimichurri.",
+            ]
         ),
     ]
 
@@ -210,6 +250,21 @@ enum WeeknightFixture {
         "jasmine-rice", "soy-sauce", "garlic",
     ]
 
+    static let initialSavedRecipeRecords: [SavedRecipeRecord] = [
+        SavedRecipeRecord(recipeID: "curry", savedAt: Date(timeIntervalSince1970: 1_788_267_600)),
+        SavedRecipeRecord(recipeID: "caesar", savedAt: Date(timeIntervalSince1970: 1_788_264_000)),
+        SavedRecipeRecord(recipeID: "chopped", savedAt: Date(timeIntervalSince1970: 1_788_260_400)),
+    ]
+
+    static var canonicalSnapshot: AppSnapshot {
+        AppSnapshot(
+            plan: initialPlan,
+            checkedIngredientIDs: initialCheckedIngredientIDs,
+            savedRecipeRecords: initialSavedRecipeRecords,
+            recipeNotes: [:]
+        )
+    }
+
     static let preferences = UserPreferences(
         storeName: "Trader Joe's",
         householdSize: 1,
@@ -217,4 +272,3 @@ enum WeeknightFixture {
         weeklyBudget: money(8_000)
     )
 }
-

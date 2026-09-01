@@ -12,11 +12,18 @@ struct AddToWeekSheet: View {
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let recipe: Recipe
+    let servings: Int
     @State private var selectedDay: Weekday?
     @State private var commitState: CommitState = .idle
 
+    init(recipe: Recipe, servings: Int? = nil, initialDay: Weekday? = nil) {
+        self.recipe = recipe
+        self.servings = servings ?? recipe.servings
+        _selectedDay = State(initialValue: initialDay)
+    }
+
     private var preview: AssignmentPreview? {
-        selectedDay.map { store.preview(recipe: recipe, day: $0) }
+        selectedDay.map { store.preview(recipe: recipe, servings: servings, day: $0) }
     }
 
     private var isCommitting: Bool { commitState == .committing }
@@ -88,7 +95,7 @@ struct AddToWeekSheet: View {
                 Text(recipe.title)
                     .font(.headline.weight(.bold))
                     .foregroundStyle(WeeknightTheme.primaryText)
-                Text("\(recipe.activeMinutes)m · serves \(recipe.servings) · \(recipe.estimatedCost.formatted())")
+                Text("\(recipe.activeMinutes)m · serves \(servings) · \(recipe.estimatedCost(for: servings).formatted())")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(WeeknightTheme.secondaryText)
             }
@@ -229,7 +236,7 @@ struct AddToWeekSheet: View {
         commitState = .committing
         Task {
             do {
-                try await store.assign(recipe: recipe, to: selectedDay)
+                try await store.assign(recipe: recipe, servings: servings, to: selectedDay)
                 commitState = .success
                 UIAccessibility.post(notification: .announcement, argument: "\(recipe.title) added to \(selectedDay.rawValue)")
                 try? await Task.sleep(nanoseconds: 350_000_000)

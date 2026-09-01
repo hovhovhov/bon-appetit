@@ -1,37 +1,273 @@
 import SwiftUI
 
-struct SavedPreviewView: View {
+struct SavedView: View {
+    @Environment(AppStore.self) private var store
+    @State private var query: String
+    @State private var filter: SavedFilter = .all
+    @State private var addRecipe: Recipe?
+    @State private var swapDay: Weekday?
+
+    init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+        _query = State(initialValue: arguments.contains("--saved-no-results") ? "No matching supper" : "")
+    }
+
+    private var results: [Recipe] {
+        store.savedRecipes(matching: query, filter: filter)
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Saved")
-                    .font(.largeTitle.weight(.heavy))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                StatusPill(
-                    text: "Milestone 1 preview",
-                    color: WeeknightTheme.bottle,
-                    background: WeeknightTheme.wash,
-                    systemImage: "hammer.fill"
-                )
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "bookmark")
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundStyle(WeeknightTheme.bottle)
-                    Text("Saved recipes arrive in Milestone 2")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                    Text("This preview intentionally contains no inactive search, filter, or save controls. Discover and Add to week are fully functional now.")
-                        .font(.body)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(22)
-                .weeknightCard()
+        Group {
+            switch store.savedMode {
+            case .loading:
+                loadingState
+            case .error:
+                statePanel(
+                    icon: "exclamationmark.arrow.triangle.2.circlepath",
+                    title: "Saved recipes didn’t load",
+                    message: "Your local library is still on this iPhone. Try loading it again.",
+                    action: "Try again"
+                ) { Task { await store.retrySaved() } }
+            case .empty:
+                emptyState
+            case .ready, .stale:
+                library
             }
-            .padding(WeeknightTheme.Spacing.gutter)
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
-        .navigationBarHidden(true)
+        .navigationTitle("Saved")
+        .navigationBarTitleDisplayMode(.large)
+        .sheet(item: $addRecipe) { recipe in
+            AddToWeekSheet(recipe: recipe)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $swapDay) { day in
+            SwapMealSheet(day: day) {}
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .accessibilityIdentifier("saved-screen")
+    }
+
+    private var library: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Your recipe shelf")
+                        .font(.title2.weight(.heavy))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                    Spacer()
+                    Text("\(store.savedCount) saved")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .accessibilityIdentifier("saved-count")
+                }
+
+                searchField
+                filterPicker
+
+                if store.savedCount == 0 {
+                    emptyState
+                        .frame(minHeight: 360)
+                } else if results.isEmpty {
+                    noResultsState
+                        .frame(minHeight: 330)
+                } else {
+                    ForEach(results) { recipe in
+                        savedCard(recipe)
+                    }
+                }
+            }
+            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+            .padding(.bottom, WeeknightTheme.Spacing.xLarge)
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(WeeknightTheme.secondaryText)
+            TextField("Search recipes, tags or ingredients", text: $query)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                .accessibilityIdentifier("saved-search")
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .frame(width: 44, height: 44)
+                }
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .accessibilityLabel("Clear search")
+                .accessibilityIdentifier("clear-saved-search")
+            }
+        }
+        .padding(.leading, 14)
+        .frame(minHeight: 52)
+        .background(WeeknightTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(WeeknightTheme.forest.opacity(0.12), lineWidth: 1)
+        }
+    }
+
+    private var filterPicker: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(SavedFilter.allCases) { option in
+                    Button {
+                        filter = option
+                    } label: {
+                        Text(option.rawValue)
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 44)
+                            .background(filter == option ? WeeknightTheme.forest : WeeknightTheme.surface)
+                            .foregroundStyle(filter == option ? WeeknightTheme.background : WeeknightTheme.primaryText)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(filter == option ? .isSelected : [])
+                    .accessibilityIdentifier("saved-filter-\(option == .all ? "all" : "recent")")
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        .accessibilityLabel("Saved recipe filters")
+    }
+
+    private func savedCard(_ recipe: Recipe) -> some View {
+        VStack(spacing: 0) {
+            NavigationLink {
+                RecipeDetailsView(
+                    recipeID: recipe.id,
+                    origin: .saved,
+                    initialServings: store.scheduledSlot(for: recipe.id)?.servings ?? recipe.servings
+                )
+            } label: {
+                HStack(alignment: .top, spacing: 13) {
+                    RecipeArtwork(style: recipe.artwork, compact: true)
+                        .frame(width: 96, height: 96)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    VStack(alignment: .leading, spacing: 7) {
+                        if let slot = store.scheduledSlot(for: recipe.id) {
+                            StatusPill(
+                                text: slot.day.rawValue,
+                                color: WeeknightTheme.forest,
+                                background: WeeknightTheme.mint,
+                                systemImage: "calendar"
+                            )
+                        }
+                        Text(recipe.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(recipe.sourceName) · \(recipe.activeMinutes)m · \(recipe.estimatedCost.formatted())")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                }
+                .padding(13)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("saved-recipe-\(recipe.id)")
+
+            Divider().padding(.horizontal, 13)
+
+            HStack(spacing: 8) {
+                Button {
+                    if let slot = store.scheduledSlot(for: recipe.id) {
+                        swapDay = slot.day
+                    } else {
+                        addRecipe = recipe
+                    }
+                } label: {
+                    Label(
+                        store.scheduledSlot(for: recipe.id) == nil ? "Add to week" : "Swap meal",
+                        systemImage: store.scheduledSlot(for: recipe.id) == nil ? "plus" : "arrow.triangle.2.circlepath"
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(WeeknightTheme.bottle)
+                .accessibilityIdentifier("saved-plan-action-\(recipe.id)")
+
+                Button {
+                    store.toggleSaved(recipe.id)
+                } label: {
+                    Label("Unsave", systemImage: "bookmark.slash")
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("saved-unsave-\(recipe.id)")
+            }
+            .padding(13)
+        }
+        .weeknightCard()
+    }
+
+    private var loadingState: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .tint(WeeknightTheme.bottle)
+            Text("Loading saved recipes…")
+                .font(.headline)
+                .foregroundStyle(WeeknightTheme.primaryText)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityLabel("Loading saved recipes")
+    }
+
+    private var emptyState: some View {
+        statePanel(
+            icon: "bookmark",
+            title: "Your saved shelf is empty",
+            message: "Save a recipe from Discover or Recipe details and it will appear here.",
+            action: "Open Discover"
+        ) { store.selectedTab = .discover }
+        .accessibilityIdentifier("saved-empty-state")
+    }
+
+    private var noResultsState: some View {
+        statePanel(
+            icon: "magnifyingglass",
+            title: "No saved recipes found",
+            message: "Try another title, source, tag or ingredient.",
+            action: "Clear search"
+        ) { query = "" }
+        .accessibilityIdentifier("saved-no-results-state")
+    }
+
+    private func statePanel(
+        icon: String,
+        title: String,
+        message: String,
+        action: String,
+        perform: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 42, weight: .semibold))
+                .foregroundStyle(WeeknightTheme.bottle)
+            Text(title)
+                .font(.title2.weight(.heavy))
+                .foregroundStyle(WeeknightTheme.primaryText)
+                .multilineTextAlignment(.center)
+            Text(message)
+                .font(.body)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .multilineTextAlignment(.center)
+            Button(action, action: perform)
+                .buttonStyle(ForestActionButtonStyle())
+        }
+        .padding(26)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -110,4 +346,3 @@ struct PreferencesPreviewView: View {
         .accessibilityElement(children: .combine)
     }
 }
-

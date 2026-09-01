@@ -244,11 +244,43 @@ private struct RecipeFeedCard: View {
                 }
                 .font(.subheadline)
                 .foregroundStyle(Color.white.opacity(0.78))
+                HStack(spacing: 10) {
+                    NavigationLink {
+                        RecipeDetailsView(
+                            recipeID: recipe.id,
+                            origin: .discover,
+                            initialServings: recipe.servings
+                        )
+                    } label: {
+                        Label("Recipe details", systemImage: "book.pages")
+                            .font(.headline.weight(.semibold))
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(Color.white.opacity(0.16))
+                            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+                    }
+                    .accessibilityIdentifier("discover-details-\(recipe.id)")
+
+                    Button {
+                        store.toggleSaved(recipe.id)
+                    } label: {
+                        Image(systemName: store.isSaved(recipe.id) ? "bookmark.fill" : "bookmark")
+                            .font(.headline)
+                            .foregroundStyle(store.isSaved(recipe.id) ? WeeknightTheme.mint : Color.white)
+                            .frame(width: 48, height: 44)
+                            .background(Color.white.opacity(0.16))
+                            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+                    }
+                    .accessibilityLabel(store.isSaved(recipe.id) ? "Unsave \(recipe.title)" : "Save \(recipe.title)")
+                    .accessibilityValue(store.isSaved(recipe.id) ? "Saved" : "Not saved")
+                    .accessibilityIdentifier("discover-save-\(recipe.id)")
+                }
+                .padding(.top, 16)
                 Button(action: onAdd) {
                     Label("Add to week", systemImage: "plus")
                 }
                 .buttonStyle(PrimaryActionButtonStyle())
-                .padding(.top, 18)
+                .padding(.top, 10)
                 .accessibilityIdentifier("add-recipe-\(recipe.id)")
             }
             .padding(.horizontal, WeeknightTheme.Spacing.gutter)

@@ -64,6 +64,39 @@ struct RecipeIngredient: Hashable, Codable, Sendable {
     let ingredient: Ingredient
     let quantity: String
     let estimatedCost: Money
+
+    func quantity(for servings: Int, baseServings: Int) -> String {
+        guard servings != baseServings, baseServings > 0 else { return quantity }
+        guard let firstDigit = quantity.firstIndex(where: { $0.isNumber }) else { return quantity }
+        let numericEnd = quantity[firstDigit...].firstIndex(where: { !$0.isNumber }) ?? quantity.endIndex
+        guard let baseAmount = Int(quantity[firstDigit..<numericEnd]) else { return quantity }
+
+        let prefix = String(quantity[..<firstDigit])
+        let suffix = String(quantity[numericEnd...])
+        let numerator = baseAmount * servings
+        if numerator.isMultiple(of: baseServings) {
+            let amount = numerator / baseServings
+            let pluralUnits = [
+                " head": " heads",
+                " tin": " tins",
+                " thumb": " thumbs",
+                " pot": " pots",
+                " slice": " slices",
+                " clove": " cloves",
+                " fillet": " fillets",
+                " bunch": " bunches",
+            ]
+            let adjustedSuffix = baseAmount == 1 && amount != 1 ? (pluralUnits[suffix] ?? suffix) : suffix
+            return "\(prefix)\(amount)\(adjustedSuffix)"
+        }
+        return "\(prefix)\(numerator)/\(baseServings)\(suffix)"
+    }
+
+    func cost(for servings: Int, baseServings: Int) -> Money {
+        guard baseServings > 0 else { return estimatedCost }
+        let scaled = (estimatedCost.minorUnits * servings + baseServings / 2) / baseServings
+        return Money(minorUnits: scaled, currencyCode: estimatedCost.currencyCode)
+    }
 }
 
 struct Recipe: Hashable, Codable, Sendable, Identifiable {
@@ -78,9 +111,43 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
     let rationale: String
     let ingredients: [RecipeIngredient]
     let artwork: ArtworkStyle
+    let sourceAttribution: String
+    let methodSteps: [String]
+
+    init(
+        id: ID,
+        title: String,
+        sourceName: String,
+        activeMinutes: Int,
+        servings: Int,
+        tags: [String],
+        rationale: String,
+        ingredients: [RecipeIngredient],
+        artwork: ArtworkStyle,
+        sourceAttribution: String? = nil,
+        methodSteps: [String] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.sourceName = sourceName
+        self.activeMinutes = activeMinutes
+        self.servings = servings
+        self.tags = tags
+        self.rationale = rationale
+        self.ingredients = ingredients
+        self.artwork = artwork
+        self.sourceAttribution = sourceAttribution ?? "Weeknight fixture inspired by \(sourceName). Local prototype content; no external photography is included."
+        self.methodSteps = methodSteps
+    }
 
     var estimatedCost: Money {
         ingredients.reduce(.zero()) { $0 + $1.estimatedCost }
+    }
+
+    func estimatedCost(for servings: Int) -> Money {
+        ingredients.reduce(.zero()) { total, entry in
+            total + entry.cost(for: servings, baseServings: self.servings)
+        }
     }
 }
 
@@ -110,6 +177,13 @@ struct MealSlot: Hashable, Codable, Sendable, Identifiable {
     var id: Weekday { day }
     let day: Weekday
     var recipeID: Recipe.ID?
+    var servings: Int
+
+    init(day: Weekday, recipeID: Recipe.ID?, servings: Int = 1) {
+        self.day = day
+        self.recipeID = recipeID
+        self.servings = max(1, servings)
+    }
 }
 
 struct WeekPlan: Hashable, Codable, Sendable, Identifiable {
@@ -133,7 +207,9 @@ enum BudgetStatus: String, Sendable {
 struct AssignmentPreview: Hashable, Sendable {
     let day: Weekday
     let recipe: Recipe
+    let servings: Int
     let replacedRecipe: Recipe?
+    let replacedServings: Int?
     let projectedSpend: Money
     let projectedRemaining: Money
 
@@ -145,6 +221,7 @@ struct ShoppingContribution: Hashable, Sendable, Identifiable {
     let day: Weekday
     let recipeID: Recipe.ID
     let recipeTitle: String
+    let servings: Int
 }
 
 struct ShoppingListItem: Hashable, Sendable, Identifiable {
@@ -181,6 +258,75 @@ struct SavedRecipeRecord: Hashable, Codable, Sendable, Identifiable {
     let savedAt: Date
 }
 
+struct AppSnapshot: Hashable, Codable, Sendable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion: Int
+    var plan: WeekPlan
+    var checkedIngredientIDs: Set<Ingredient.ID>
+    var savedRecipeRecords: [SavedRecipeRecord]
+    var recipeNotes: [Recipe.ID: String]
+
+    init(
+        schemaVersion: Int = currentSchemaVersion,
+        plan: WeekPlan,
+        checkedIngredientIDs: Set<Ingredient.ID>,
+        savedRecipeRecords: [SavedRecipeRecord],
+        recipeNotes: [Recipe.ID: String]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.plan = plan
+        self.checkedIngredientIDs = checkedIngredientIDs
+        self.savedRecipeRecords = savedRecipeRecords
+        self.recipeNotes = recipeNotes
+    }
+}
+
+struct RecipeServingDraft: Hashable, Sendable {
+    static let minimum = 1
+    static let maximum = 8
+
+    let committed: Int
+    private(set) var value: Int
+
+    init(committed: Int) {
+        let clamped = min(Self.maximum, max(Self.minimum, committed))
+        self.committed = clamped
+        self.value = clamped
+    }
+
+    var isEdited: Bool { value != committed }
+    var canDecrement: Bool { value > Self.minimum }
+    var canIncrement: Bool { value < Self.maximum }
+
+    mutating func decrement() {
+        guard canDecrement else { return }
+        value -= 1
+    }
+
+    mutating func increment() {
+        guard canIncrement else { return }
+        value += 1
+    }
+
+    mutating func cancel() {
+        value = committed
+    }
+}
+
+enum SavedFilter: String, CaseIterable, Hashable, Sendable, Identifiable {
+    case all = "All recipes"
+    case recentlySaved = "Recently saved"
+
+    var id: String { rawValue }
+}
+
+enum RecipeOrigin: String, Hashable, Sendable {
+    case plan = "Plan"
+    case discover = "Discover"
+    case saved = "Saved"
+}
+
 enum RepositoryMode: String, Sendable {
     case ready
     case loading
@@ -196,4 +342,3 @@ enum AssignmentError: LocalizedError, Equatable {
         "The demo plan could not be updated. Your selected day is still here, so you can retry."
     }
 }
-

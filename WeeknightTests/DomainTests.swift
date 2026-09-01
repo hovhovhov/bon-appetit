@@ -109,6 +109,65 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(Planning.aisleProgress(.produce, items: items), ShoppingProgress(checked: 2, total: 11))
     }
 
+    func testServingDependentBudgetAndIngredientAggregation() throws {
+        let carbonara = try XCTUnwrap(recipe("carbonara"))
+        let plan = Planning.assigning(
+            recipeID: carbonara.id,
+            servings: 2,
+            to: .thursday,
+            in: WeeknightFixture.initialPlan
+        )
+        let items = Planning.shoppingItems(
+            plan: plan,
+            recipes: WeeknightFixture.recipes,
+            checkedIngredientIDs: []
+        )
+
+        XCTAssertEqual(Planning.weeklySpend(plan: plan, recipes: WeeknightFixture.recipes), WeeknightFixture.money(5_320))
+        XCTAssertEqual(items.first(where: { $0.id == "spaghetti" })?.quantityDisplay, "250g")
+        XCTAssertEqual(items.first(where: { $0.id == "spaghetti" })?.estimatedCost, WeeknightFixture.money(140))
+        XCTAssertEqual(items.first(where: { $0.id == "eggs" })?.quantityDisplay, "4")
+    }
+
+    func testServingDraftCancelAndLimits() {
+        var draft = RecipeServingDraft(committed: 2)
+
+        draft.increment()
+        XCTAssertEqual(draft.value, 3)
+        XCTAssertTrue(draft.isEdited)
+        draft.cancel()
+        XCTAssertEqual(draft.value, 2)
+        XCTAssertFalse(draft.isEdited)
+
+        var minimum = RecipeServingDraft(committed: RecipeServingDraft.minimum)
+        minimum.decrement()
+        XCTAssertEqual(minimum.value, RecipeServingDraft.minimum)
+        XCTAssertFalse(minimum.canDecrement)
+
+        var maximum = RecipeServingDraft(committed: RecipeServingDraft.maximum)
+        maximum.increment()
+        XCTAssertEqual(maximum.value, RecipeServingDraft.maximum)
+        XCTAssertFalse(maximum.canIncrement)
+    }
+
+    func testAddAndSwapReuseAssignmentLogicWithServings() throws {
+        var plan = Planning.assigning(recipeID: "carbonara", servings: 2, to: .thursday, in: WeeknightFixture.initialPlan)
+        let curry = try XCTUnwrap(recipe("curry"))
+        let preview = Planning.previewAssignment(
+            recipe: curry,
+            servings: 2,
+            to: .thursday,
+            in: plan,
+            recipes: WeeknightFixture.recipes
+        )
+
+        XCTAssertEqual(preview.replacedRecipe?.id, "carbonara")
+        XCTAssertEqual(preview.replacedServings, 2)
+        plan = Planning.assigning(recipeID: curry.id, servings: 2, to: .thursday, in: plan)
+        XCTAssertEqual(plan.slots.first(where: { $0.day == .thursday })?.servings, 2)
+        XCTAssertEqual(Planning.weeklySpend(plan: plan, recipes: WeeknightFixture.recipes), WeeknightFixture.money(6_020))
+    }
+
     private func recipe(_ id: Recipe.ID) -> Recipe? {
         WeeknightFixture.recipes.first(where: { $0.id == id })
     }
@@ -137,4 +196,3 @@ final class DomainTests: XCTestCase {
         return Planning.budgetStatus(plan: plan, recipes: [recipe])
     }
 }
-

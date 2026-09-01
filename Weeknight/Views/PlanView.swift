@@ -149,7 +149,17 @@ struct PlanView: View {
                             .frame(height: 1)
                     }
                     if let recipe = store.recipe(for: slot) {
-                        PlannedMealCard(day: slot.day, recipe: recipe)
+                        NavigationLink {
+                            RecipeDetailsView(
+                                recipeID: recipe.id,
+                                origin: .plan,
+                                initialServings: slot.servings
+                            )
+                        } label: {
+                            PlannedMealCard(day: slot.day, recipe: recipe, servings: slot.servings)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
                     } else {
                         EmptyMealCard(day: slot.day)
                     }
@@ -247,6 +257,7 @@ private struct BudgetCard: View {
 private struct PlannedMealCard: View {
     let day: Weekday
     let recipe: Recipe
+    let servings: Int
 
     var body: some View {
         HStack(alignment: .top, spacing: 13) {
@@ -258,13 +269,14 @@ private struct PlannedMealCard: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(WeeknightTheme.primaryText)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("meal-\(day.rawValue)")
                 FlowLayout(spacing: 5) {
                     ForEach(recipe.tags, id: \.self) { TagChip(text: $0) }
                 }
                 HStack(spacing: 8) {
                     Text("\(recipe.activeMinutes)m")
-                    Text("serves \(recipe.servings)")
-                    Text(recipe.estimatedCost.formatted()).fontWeight(.bold)
+                    Text("serves \(servings)")
+                    Text(recipe.estimatedCost(for: servings).formatted()).fontWeight(.bold)
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(WeeknightTheme.secondaryText)
@@ -273,9 +285,8 @@ private struct PlannedMealCard: View {
         }
         .padding(13)
         .weeknightCard()
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(day.rawValue), \(recipe.title), \(recipe.activeMinutes) minutes, \(recipe.estimatedCost.formatted())")
-        .accessibilityIdentifier("meal-\(day.rawValue)")
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(day.rawValue), \(recipe.title), \(recipe.activeMinutes) minutes, serves \(servings), \(recipe.estimatedCost(for: servings).formatted())")
     }
 }
 

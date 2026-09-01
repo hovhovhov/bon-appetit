@@ -17,7 +17,7 @@ enum Planning {
         let lookup = recipesByID(recipes)
         return plan.slots.reduce(.zero(currencyCode: plan.budget.currencyCode)) { total, slot in
             guard let recipeID = slot.recipeID, let recipe = lookup[recipeID] else { return total }
-            return total + recipe.estimatedCost
+            return total + recipe.estimatedCost(for: slot.servings)
         }
     }
 
@@ -36,29 +36,53 @@ enum Planning {
 
     static func previewAssignment(
         recipe: Recipe,
+        servings: Int? = nil,
         to day: Weekday,
         in plan: WeekPlan,
         recipes: [Recipe]
     ) -> AssignmentPreview {
         let lookup = recipesByID(recipes)
-        let existingID = plan.slots.first(where: { $0.day == day })?.recipeID
+        let existingSlot = plan.slots.first(where: { $0.day == day })
+        let existingID = existingSlot?.recipeID
         let replaced = existingID.flatMap { lookup[$0] }
         let current = weeklySpend(plan: plan, recipes: recipes)
-        let projected = current - (replaced?.estimatedCost ?? .zero()) + recipe.estimatedCost
+        let selectedServings = servings ?? recipe.servings
+        let replacedCost = replaced.map { $0.estimatedCost(for: existingSlot?.servings ?? $0.servings) } ?? .zero()
+        let projected = current - replacedCost + recipe.estimatedCost(for: selectedServings)
         return AssignmentPreview(
             day: day,
             recipe: recipe,
+            servings: selectedServings,
             replacedRecipe: replaced,
+            replacedServings: existingSlot?.servings,
             projectedSpend: projected,
             projectedRemaining: plan.budget - projected
         )
     }
 
-    static func assigning(recipeID: Recipe.ID, to day: Weekday, in plan: WeekPlan) -> WeekPlan {
+    static func assigning(
+        recipeID: Recipe.ID,
+        servings: Int = 1,
+        to day: Weekday,
+        in plan: WeekPlan
+    ) -> WeekPlan {
         var result = plan
         guard let index = result.slots.firstIndex(where: { $0.day == day }) else { return result }
-        guard result.slots[index].recipeID != recipeID else { return result }
+        guard result.slots[index].recipeID != recipeID || result.slots[index].servings != servings else { return result }
         result.slots[index].recipeID = recipeID
+        result.slots[index].servings = min(RecipeServingDraft.maximum, max(RecipeServingDraft.minimum, servings))
+        result.revision += 1
+        return result
+    }
+
+    static func updatingServings(to servings: Int, on day: Weekday, in plan: WeekPlan) -> WeekPlan {
+        var result = plan
+        guard let index = result.slots.firstIndex(where: { $0.day == day }), result.slots[index].recipeID != nil else {
+            return result
+        }
+        let clamped = min(RecipeServingDraft.maximum, max(RecipeServingDraft.minimum, servings))
+        guard result.slots[index].servings != clamped else { return result }
+        result.slots[index].servings = clamped
         result.revision += 1
         return result
     }
@@ -84,18 +108,21 @@ enum Planning {
                 let contribution = ShoppingContribution(
                     day: slot.day,
                     recipeID: recipe.id,
-                    recipeTitle: recipe.title
+                    recipeTitle: recipe.title,
+                    servings: slot.servings
                 )
+                let quantity = entry.quantity(for: slot.servings, baseServings: recipe.servings)
+                let cost = entry.cost(for: slot.servings, baseServings: recipe.servings)
                 if var existing = aggregated[entry.ingredient.id] {
-                    existing.quantities.append(entry.quantity)
-                    existing.cost = existing.cost + entry.estimatedCost
+                    existing.quantities.append(quantity)
+                    existing.cost = existing.cost + cost
                     existing.contributions.append(contribution)
                     aggregated[entry.ingredient.id] = existing
                 } else {
                     aggregated[entry.ingredient.id] = Accumulator(
                         ingredient: entry.ingredient,
-                        quantities: [entry.quantity],
-                        cost: entry.estimatedCost,
+                        quantities: [quantity],
+                        cost: cost,
                         contributions: [contribution]
                     )
                 }
@@ -137,4 +164,3 @@ enum Planning {
         shoppingProgress(items: items.filter { $0.ingredient.aisle == aisle })
     }
 }
-

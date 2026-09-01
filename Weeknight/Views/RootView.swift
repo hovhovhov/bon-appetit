@@ -21,7 +21,7 @@ struct RootView: View {
             .tag(AppTab.discover)
 
             NavigationStack {
-                SavedPreviewView()
+                SavedView()
             }
             .tabItem { Label("Saved", systemImage: "bookmark") }
             .tag(AppTab.saved)
@@ -75,4 +75,3 @@ private struct ConfirmationToast: View {
         .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
     }
 }
-
