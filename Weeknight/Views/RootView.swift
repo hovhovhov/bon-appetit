@@ -3,6 +3,16 @@ import UIKit
 
 struct RootView: View {
     @State private var store = AppStore()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(red: 251 / 255, green: 248 / 255, blue: 236 / 255, alpha: 1)
+        appearance.shadowColor = UIColor(red: 235 / 255, green: 227 / 255, blue: 210 / 255, alpha: 1)
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
 
     var body: some View {
         @Bindable var store = store
@@ -29,21 +39,25 @@ struct RootView: View {
             NavigationStack {
                 PreferencesView()
             }
-            .tabItem { Label("Preferences", systemImage: "slider.horizontal.3") }
+            .tabItem {
+                Label("You", systemImage: "person")
+                    .accessibilityLabel("Preferences")
+            }
             .tag(AppTab.preferences)
         }
-        .tint(WeeknightTheme.bottle)
+        .tint(WeeknightTheme.forest)
         .environment(store)
         .overlay(alignment: .bottom) {
             if let message = store.confirmationMessage {
                 ConfirmationToast(message: message)
                     .padding(.horizontal, WeeknightTheme.Spacing.standard)
                     .padding(.bottom, 92)
+                    .allowsHitTesting(false)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: store.confirmationMessage)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: store.confirmationMessage)
         .onChange(of: store.confirmationMessage) { _, message in
             guard let message else { return }
             UIAccessibility.post(notification: .announcement, argument: message)

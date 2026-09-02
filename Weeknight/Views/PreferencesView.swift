@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-enum PreferenceEditorKind: String, CaseIterable, Identifiable {
+enum PreferenceEditorKind: String, CaseIterable, Identifiable, Hashable {
     case supermarket
     case market
     case household
@@ -65,32 +65,33 @@ enum PreferenceEditorKind: String, CaseIterable, Identifiable {
 
 struct PreferencesView: View {
     @Environment(AppStore.self) private var store
-    @State private var editor: PreferenceEditorKind?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var launchedEditor: PreferenceEditorKind?
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         if let flag = arguments.firstIndex(of: "--open-preference-editor"),
            arguments.indices.contains(flag + 1),
            let kind = PreferenceEditorKind(rawValue: arguments[flag + 1]) {
-            _editor = State(initialValue: kind)
+            _launchedEditor = State(initialValue: kind)
         }
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 26) {
                 header
                 planningSummary
                 preferenceSection("THE WEEK", kinds: [.supermarket, .market, .household, .cookingDays, .budget, .cookingTime])
-                preferenceSection("TASTE & FIT", kinds: [.dislikes, .proteins, .mealStyles])
-                preferenceSection("SAFETY & DIET", kinds: [.dietary, .allergens])
-                preferenceSection("YOUR KITCHEN", kinds: [.appliances])
+                preferenceSection("WHAT YOU EAT", kinds: [.dietary, .allergens, .dislikes, .proteins, .mealStyles])
+                preferenceSection("KITCHEN", kinds: [.appliances])
+                reduceMotionRow
 
                 Button {
                     store.resetFixture()
                 } label: {
                     Label("Reset demo week", systemImage: "arrow.counterclockwise")
                 }
-                .buttonStyle(ForestActionButtonStyle())
+                .buttonStyle(SecondaryActionButtonStyle())
                 .accessibilityHint("Restores the canonical plan, preferences, shopping progress, Saved recipes, and notes")
                 .accessibilityIdentifier("reset-fixture")
 
@@ -104,86 +105,64 @@ struct PreferencesView: View {
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
         .navigationBarHidden(true)
-        .sheet(item: $editor) { kind in
+        .navigationDestination(for: PreferenceEditorKind.self) { kind in
             PreferenceEditorSheet(kind: kind, initial: store.preferences)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $launchedEditor) { kind in
+            NavigationStack {
+                PreferenceEditorSheet(kind: kind, initial: store.preferences)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
         }
         .accessibilityIdentifier("preferences-screen")
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Your setup")
-                .font(.largeTitle.weight(.heavy))
+            Text("You")
+                .font(.largeTitle.weight(.black))
                 .foregroundStyle(WeeknightTheme.primaryText)
                 .accessibilityIdentifier("preferences-title")
-            Text("Everything here changes what you get shown, how portions scale, or what lands on the list.")
-                .font(.body)
-                .foregroundStyle(WeeknightTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private var planningSummary: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("PLANNING FOR")
-                .font(.caption.weight(.bold))
-                .tracking(1.3)
-                .foregroundStyle(WeeknightTheme.background.opacity(0.62))
-            Text("\(store.preferences.householdSize) \(store.preferences.householdSize == 1 ? "person" : "people") · \(store.preferences.cookingDays.count) dinners a week · \(store.preferences.weeklyBudget.formatted()) at \(store.preferences.supermarket.rawValue) · under \(store.preferences.maximumCookingMinutes) min")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(WeeknightTheme.background)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(WeeknightTheme.deepPine)
-        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
+        Text("\(store.preferences.householdSize) \(store.preferences.householdSize == 1 ? "person" : "people") · \(store.preferences.cookingDays.count) dinners a week · \(store.preferences.weeklyBudget.formatted()) at \(store.preferences.supermarket.rawValue) · under \(store.preferences.maximumCookingMinutes) min")
+            .font(.title3)
+            .foregroundStyle(WeeknightTheme.secondaryText)
+            .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("preferences-summary")
     }
 
     private func preferenceSection(_ title: String, kinds: [PreferenceEditorKind]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Text(title)
-                    .font(.caption.weight(.bold))
-                    .tracking(1.3)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                Rectangle().fill(WeeknightTheme.forest.opacity(0.1)).frame(height: 1)
-            }
-            VStack(spacing: 10) {
-                ForEach(kinds) { kind in
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .tracking(1.8)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+            VStack(spacing: 0) {
+                ForEach(Array(kinds.enumerated()), id: \.element.id) { index, kind in
                     preferenceRow(kind)
-                        .weeknightCard()
+                    if index < kinds.count - 1 {
+                        Divider().overlay(WeeknightTheme.hairline)
+                    }
                 }
             }
         }
     }
 
     private func preferenceRow(_ kind: PreferenceEditorKind) -> some View {
-        Button {
-            editor = kind
-        } label: {
+        NavigationLink(value: kind) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(kind.title)
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(kind == .allergens ? Color(hex: 0x8C2A17) : WeeknightTheme.primaryText)
-                        Text(kind.effect.uppercased())
-                            .font(.caption2.weight(.bold))
-                            .tracking(0.7)
-                            .foregroundStyle(kind == .allergens ? Color(hex: 0x8C2A17) : WeeknightTheme.bottle)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(kind == .allergens ? Color(hex: 0xFCEAE4) : WeeknightTheme.wash)
-                            .clipShape(Capsule())
-                    }
-                    Text(summary(for: kind))
+                    Text(kind.title)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(kind == .allergens ? WeeknightTheme.tomato : WeeknightTheme.primaryText)
+                    Text("\(summary(for: kind)) · \(kind.effect.lowercased())")
                         .font(.body)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .foregroundStyle(kind == .allergens ? WeeknightTheme.tomato : WeeknightTheme.secondaryText)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -192,8 +171,9 @@ struct PreferencesView: View {
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .accessibilityHidden(true)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(kind.title), \(summary(for: kind))")
@@ -224,6 +204,27 @@ struct PreferencesView: View {
     private func selectionSummary(_ values: [String]) -> String {
         values.isEmpty ? "None selected" : values.sorted().joined(separator: ", ")
     }
+
+    private var reduceMotionRow: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Reduce motion")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                Text("Follows the iPhone system setting")
+                    .font(.body)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+            }
+            Spacer()
+            Image(systemName: reduceMotion ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundStyle(reduceMotion ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
+        }
+        .frame(minHeight: 56)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Reduce motion")
+        .accessibilityValue(reduceMotion ? "On, follows system setting" : "Off, follows system setting")
+    }
 }
 
 private struct PreferenceEditorSheet: View {
@@ -246,42 +247,40 @@ private struct PreferenceEditorSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if case .reviewing(let preview) = phase {
-                        reconciliation(preview)
-                    } else {
-                        Text(kind.explanation)
-                            .font(.body)
-                            .foregroundStyle(WeeknightTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                        editorContent
-                        if kind == .allergens { allergenSafetyNote }
-                        if case .failed(let message) = phase { failureBanner(message) }
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if case .reviewing(let preview) = phase {
+                    reconciliation(preview)
+                } else {
+                    Text(kind.explanation)
+                        .font(.body)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("preference-editor-\(kind.rawValue)")
+                    editorContent
+                    if kind == .allergens { allergenSafetyNote }
+                    if case .failed(let message) = phase { failureBanner(message) }
                 }
-                .padding(WeeknightTheme.Spacing.gutter)
-                .padding(.bottom, 90)
             }
-            .background(WeeknightTheme.background.ignoresSafeArea())
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomAction
-                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial)
-            }
-            .navigationTitle(phaseTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .disabled(phase == .saving)
-                }
+            .padding(WeeknightTheme.Spacing.gutter)
+            .padding(.bottom, 90)
+        }
+        .background(WeeknightTheme.background.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomAction
+                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial)
+        }
+        .navigationTitle(phaseTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Cancel") { dismiss() }
+                    .disabled(phase == .saving)
             }
         }
         .interactiveDismissDisabled(phase == .saving)
-        .accessibilityIdentifier("preference-editor-\(kind.rawValue)")
     }
 
     private var phaseTitle: String {

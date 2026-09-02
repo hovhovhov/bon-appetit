@@ -11,6 +11,7 @@ struct AddToWeekSheet: View {
 
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let recipe: Recipe
     let servings: Int
     @State private var selectedDay: Weekday?
@@ -31,79 +32,90 @@ struct AddToWeekSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Pick the night you want to cook it. Occupied days show exactly what will be replaced.")
-                        .font(.body)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    photoHeader
+                    VStack(alignment: .leading, spacing: 0) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("Which night?")
+                                    .font(.largeTitle.weight(.black))
+                                Spacer()
+                                recipePrice
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Which night?").font(.largeTitle.weight(.black))
+                                recipePrice
+                            }
+                        }
+                        .padding(.bottom, 14)
 
-                    recipeSummary
-
-                    VStack(spacing: 9) {
-                        ForEach(store.plan.slots) { slot in
+                        ForEach(Array(store.plan.slots.enumerated()), id: \.element.id) { index, slot in
                             dayRow(slot)
+                            if index < store.plan.slots.count - 1 {
+                                Divider().overlay(WeeknightTheme.hairline)
+                            }
                         }
                     }
-
-                    Button("Cancel") { dismiss() }
-                        .font(.headline)
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .disabled(isCommitting)
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .padding(WeeknightTheme.Spacing.gutter)
+                    .padding(.bottom, 134)
                 }
-                .padding(WeeknightTheme.Spacing.gutter)
             }
+            .scrollIndicators(.hidden)
             .background(WeeknightTheme.background.ignoresSafeArea())
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 0) {
-                    Divider()
+                VStack(spacing: 10) {
                     compactProjection
-                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                        .padding(.top, 10)
                     if case .failure(let message) = commitState {
                         errorBanner(message)
-                            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                            .padding(.top, 8)
                     }
                     confirmationButton
-                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                        .padding(.top, 8)
-                        .padding(.bottom, 10)
                 }
-                .background(.ultraThinMaterial)
+                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+                .background(WeeknightTheme.background)
+                .overlay(alignment: .top) { Divider().overlay(WeeknightTheme.hairline) }
             }
-            .navigationTitle("Add to your week")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close", systemImage: "xmark") { dismiss() }
-                        .labelStyle(.iconOnly)
-                        .disabled(isCommitting)
-                        .accessibilityLabel("Close Add to week")
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
         }
+        .presentationBackground(WeeknightTheme.background)
         .interactiveDismissDisabled(isCommitting)
         .accessibilityIdentifier("add-to-week-sheet")
     }
 
-    private var recipeSummary: some View {
-        HStack(spacing: 13) {
-            RecipeArtwork(style: recipe.artwork, compact: true)
-                .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            VStack(alignment: .leading, spacing: 4) {
+    private var photoHeader: some View {
+        ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .bottomLeading) {
+                RecipeArtwork(style: recipe.artwork)
+                    .frame(height: 210)
+                LinearGradient(colors: [.black.opacity(0.28), .clear, .black.opacity(0.62)], startPoint: .top, endPoint: .bottom)
                 Text(recipe.title)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                Text("\(recipe.activeMinutes)m · serves \(servings) · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(WeeknightTheme.secondaryText)
+                    .font(.title.weight(.black))
+                    .foregroundStyle(WeeknightTheme.photoText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(WeeknightTheme.Spacing.gutter)
             }
-            Spacer(minLength: 0)
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(WeeknightTheme.photoText)
+                    .frame(width: 44, height: 44)
+                    .background(Color.black.opacity(0.3))
+                    .clipShape(Circle())
+            }
+            .disabled(isCommitting)
+            .accessibilityLabel("Close Add to week")
+            .padding(14)
         }
-        .padding(13)
-        .weeknightCard()
-        .accessibilityElement(children: .combine)
+        .clipShape(.rect(bottomLeadingRadius: WeeknightTheme.Radius.sheet, bottomTrailingRadius: WeeknightTheme.Radius.sheet))
+        .accessibilityElement(children: .contain)
+    }
+
+    private var recipePrice: some View {
+        Text("\(store.estimatedCost(for: recipe, servings: servings).formatted()) · \(servings) serving\(servings == 1 ? "" : "s")")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(WeeknightTheme.secondaryText)
     }
 
     private func dayRow(_ slot: MealSlot) -> some View {
@@ -113,106 +125,97 @@ struct AddToWeekSheet: View {
             guard !isCommitting else { return }
             selectedDay = slot.day
             if case .failure = commitState { commitState = .idle }
+            UISelectionFeedbackGenerator().selectionChanged()
         } label: {
             HStack(spacing: 12) {
-                Text(slot.day.shortName)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.primaryText)
-                    .frame(width: 48, height: 48)
-                    .background(selected ? WeeknightTheme.leaf : WeeknightTheme.sand)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(slot.day.rawValue)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                    Text(existing.map { "Replaces \($0.title)" } ?? "Free — nothing planned")
+                Text(slot.day.shortName.uppercased())
+                    .font(.caption.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.secondaryText)
+                    .frame(width: 48, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(existing?.title ?? "Free")
+                        .font(.headline.weight(existing == nil ? .bold : .regular))
+                        .foregroundStyle(existing == nil ? WeeknightTheme.primaryText : WeeknightTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(existing == nil ? freeDayCopy(excluding: slot.day) : "Replaces this meal")
                         .font(.subheadline)
-                        .foregroundStyle(existing == nil ? WeeknightTheme.bottle : Color(hex: 0x8A6104))
+                        .foregroundStyle(existing == nil ? WeeknightTheme.secondaryText : WeeknightTheme.tomato)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 6)
-                if selected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(WeeknightTheme.leaf)
-                        .accessibilityHidden(true)
+                if existing != nil, !selected {
+                    Text("swap")
+                        .font(.subheadline)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
                 }
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
             }
-            .padding(12)
-            .background(selected ? WeeknightTheme.wash : WeeknightTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
-            .overlay {
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .frame(minHeight: existing == nil ? 68 : 56)
+            .background {
                 RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous)
-                    .stroke(selected ? WeeknightTheme.leaf : WeeknightTheme.forest.opacity(0.08), lineWidth: selected ? 2 : 1)
+                    .fill(selected ? WeeknightTheme.wash : Color.clear)
+                    .animation(reduceMotion ? nil : .easeOut(duration: WeeknightTheme.Motion.settle), value: selected)
             }
+            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isCommitting)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(selected ? "Selected" : "Not selected")
         .accessibilityHint(existing == nil ? "Selects this open day" : "Selects this day and replaces the current meal")
         .accessibilityIdentifier("day-\(slot.day.rawValue)")
     }
 
+    private func freeDayCopy(excluding day: Weekday) -> String {
+        if let other = store.plan.slots.first(where: { $0.day != day && $0.recipeID == nil })?.day {
+            return "Leaves \((store.remainingBudget - store.estimatedCost(for: recipe, servings: servings)).formatted()) for \(other.rawValue)"
+        }
+        return "Completes your week"
+    }
+
     private var compactProjection: some View {
-        VStack(spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("Week after this change")
-                    .font(.caption.weight(.semibold))
+        VStack(spacing: 7) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("After adding")
+                    .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
-                Spacer(minLength: 4)
+                Spacer()
                 Text(preview.map { "\($0.projectedSpend.formatted()) of \(store.plan.budget.formatted())" } ?? "Choose a day")
-                    .font(.subheadline.weight(.bold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(WeeknightTheme.primaryText)
                     .accessibilityIdentifier("assignment-preview-spend")
             }
             if let preview {
-                HStack(spacing: 9) {
-                    BudgetProgressBar(spent: preview.projectedSpend, budget: store.plan.budget, height: 7)
-                        .background(WeeknightTheme.sand)
-                        .clipShape(Capsule())
-                    if preview.isOverBudget {
-                        Text("\(Money(minorUnits: abs(preview.projectedRemaining.minorUnits)).formatted()) over")
-                            .foregroundStyle(WeeknightTheme.tomato)
-                    } else {
-                        Text("\(preview.projectedRemaining.formatted()) remaining")
-                            .foregroundStyle(WeeknightTheme.bottle)
-                            .accessibilityIdentifier("assignment-preview-remaining")
-                    }
-                }
-                .font(.caption.weight(.bold))
-            } else {
-                Text("Select a day to preview spend and remaining budget.")
-                    .font(.caption)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
+                BudgetProgressBar(spent: preview.projectedSpend, budget: store.plan.budget)
+                Text(preview.isOverBudget
+                    ? "\(Money(minorUnits: abs(preview.projectedRemaining.minorUnits)).formatted()) over budget"
+                    : "\(preview.projectedRemaining.formatted()) remaining")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(preview.isOverBudget ? WeeknightTheme.tomato : WeeknightTheme.forest)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("assignment-preview-remaining")
             }
         }
     }
 
     private func errorBanner(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Label("Couldn’t update the plan", systemImage: "exclamationmark.triangle.fill")
-                .font(.headline.weight(.bold))
-            Text(message)
-                .font(.subheadline)
-        }
-        .foregroundStyle(Color(hex: 0x8C2A17))
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: 0xFCEAE4))
-        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isStaticText)
+        Label(message, systemImage: "exclamationmark.triangle.fill")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(WeeknightTheme.tomato)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var confirmationButton: some View {
-        Button {
-            commit()
-        } label: {
+        Button { commit() } label: {
             switch commitState {
             case .committing:
-                HStack { ProgressView(); Text("Adding…") }
+                HStack { ProgressView().tint(WeeknightTheme.background); Text("Adding…") }
             case .success:
                 Label("Added", systemImage: "checkmark")
             case .failure:
@@ -226,7 +229,7 @@ struct AddToWeekSheet: View {
         }
         .buttonStyle(PrimaryActionButtonStyle())
         .disabled(selectedDay == nil || isCommitting || commitState == .success)
-        .opacity(selectedDay == nil ? 0.45 : 1)
+        .opacity(selectedDay == nil ? 0.42 : 1)
         .accessibilityIdentifier("add-confirm")
         .accessibilityValue(isCommitting ? "Busy" : (selectedDay == nil ? "Disabled" : "Enabled"))
     }
@@ -238,12 +241,14 @@ struct AddToWeekSheet: View {
             do {
                 try await store.assign(recipe: recipe, servings: servings, to: selectedDay)
                 commitState = .success
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
                 UIAccessibility.post(notification: .announcement, argument: "\(recipe.title) added to \(selectedDay.rawValue)")
-                try? await Task.sleep(nanoseconds: 350_000_000)
+                if !reduceMotion { try? await Task.sleep(nanoseconds: 320_000_000) }
                 store.selectedTab = .plan
                 dismiss()
             } catch {
                 commitState = .failure(error.localizedDescription)
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
                 UIAccessibility.post(notification: .announcement, argument: "Couldn’t update the plan. Try again.")
             }
         }

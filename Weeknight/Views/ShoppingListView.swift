@@ -1,8 +1,9 @@
 import SwiftUI
+import UIKit
 
 struct ShoppingListView: View {
     @Environment(AppStore.self) private var store
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -18,7 +19,7 @@ struct ShoppingListView: View {
             }
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
-        .navigationTitle("Shopping list")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .accessibilityIdentifier("shopping-list-screen")
@@ -27,100 +28,92 @@ struct ShoppingListView: View {
     private var listContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Shopping list")
-                        .font(.largeTitle.weight(.heavy))
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Shopping")
+                        .font(.largeTitle.weight(.black))
                         .foregroundStyle(WeeknightTheme.primaryText)
-                    Text("\(store.plan.storeName) · \(store.filledCount) dinners")
-                        .font(.body)
+                    Spacer(minLength: 12)
+                    Text(store.plan.storeName)
+                        .font(.headline)
                         .foregroundStyle(WeeknightTheme.secondaryText)
+                        .multilineTextAlignment(.trailing)
                 }
 
-                summaryCard
-                    .padding(.top, WeeknightTheme.Spacing.standard)
+                summary
+                    .padding(.top, 16)
 
                 if store.shoppingMode == .stale {
-                    staleBanner
-                        .padding(.top, WeeknightTheme.Spacing.medium)
+                    staleBanner.padding(.top, 14)
                 }
 
                 ForEach(Aisle.allCases) { aisle in
                     let items = store.shoppingItems.filter { $0.ingredient.aisle == aisle }
                     if !items.isEmpty {
                         aisleGroup(aisle, items: items)
-                            .padding(.top, WeeknightTheme.Spacing.large)
+                            .padding(.top, 28)
                     }
                 }
 
-                Text("Generated automatically from the active plan. Estimates use mock consumed quantities.")
+                Text("Generated automatically from the active week. Prices are deterministic development estimates.")
                     .font(.footnote)
                     .foregroundStyle(WeeknightTheme.secondaryText)
-                    .padding(.vertical, WeeknightTheme.Spacing.large)
+                    .padding(.vertical, 28)
             }
             .padding(.horizontal, WeeknightTheme.Spacing.gutter)
             .padding(.top, WeeknightTheme.Spacing.standard)
+            .padding(.bottom, 90)
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Estimated total")
+                        .font(.subheadline)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(store.weeklySpend.formatted())
+                            .font(.title.weight(.black))
+                        Text("of \(store.plan.budget.formatted())")
+                            .font(.headline)
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                    }
+                }
+                Spacer()
+                Text("Tap items as you shop")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(WeeknightTheme.forest)
+                    .multilineTextAlignment(.trailing)
+            }
+            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+            .padding(.vertical, 12)
+            .background(WeeknightTheme.background)
+            .overlay(alignment: .top) { Divider().overlay(WeeknightTheme.hairline) }
         }
     }
 
-    private var summaryCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("ESTIMATED TOTAL")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.3)
-                        .foregroundStyle(WeeknightTheme.background.opacity(0.64))
-                    Text(store.weeklySpend.formatted())
-                        .font(.title.weight(.heavy))
-                        .foregroundStyle(WeeknightTheme.background)
-                    Text("\(store.shoppingProgress.display) items")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(WeeknightTheme.mint)
-                        .accessibilityIdentifier("shopping-list-progress")
-                    Text(store.shoppingProgress.checked == store.shoppingProgress.total ? "shopping complete" : "in the basket")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(WeeknightTheme.background.opacity(0.58))
-                }
-            } else {
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("ESTIMATED TOTAL")
-                            .font(.caption.weight(.bold))
-                            .tracking(1.3)
-                            .foregroundStyle(WeeknightTheme.background.opacity(0.64))
-                        Text(store.weeklySpend.formatted())
-                            .font(.largeTitle.weight(.heavy))
-                            .foregroundStyle(WeeknightTheme.background)
-                    }
-                    Spacer(minLength: 10)
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("\(store.shoppingProgress.display) items")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(WeeknightTheme.mint)
-                            .accessibilityIdentifier("shopping-list-progress")
-                        Text(store.shoppingProgress.checked == store.shoppingProgress.total ? "shopping complete" : "in the basket")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(WeeknightTheme.background.opacity(0.58))
-                    }
-                }
+    private var summary: some View {
+        VStack(spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(store.shoppingProgress.checked) of \(store.shoppingProgress.total) in the basket")
+                    .font(.title3.weight(.black))
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .accessibilityIdentifier("shopping-list-progress")
+                Spacer(minLength: 10)
+                Text(store.weeklySpend.formatted())
+                    .font(.title3.weight(.black))
+                    .foregroundStyle(WeeknightTheme.primaryText)
             }
             GeometryReader { proxy in
-                Capsule()
-                    .fill(WeeknightTheme.background.opacity(0.16))
-                    .overlay(alignment: .leading) {
-                        Capsule()
-                            .fill(WeeknightTheme.mint)
-                            .frame(width: proxy.size.width * store.shoppingProgress.fraction)
-                    }
+                ZStack(alignment: .leading) {
+                    Capsule().fill(WeeknightTheme.hairline)
+                    Capsule()
+                        .fill(WeeknightTheme.forest)
+                        .frame(width: proxy.size.width * store.shoppingProgress.fraction)
+                }
             }
-            .frame(height: 9)
+            .frame(height: 3)
             .accessibilityHidden(true)
         }
-        .padding(18)
-        .background(
-            LinearGradient(colors: [WeeknightTheme.deepPine, WeeknightTheme.deepestPine], startPoint: .topLeading, endPoint: .bottomTrailing)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Estimated total \(store.weeklySpend.formatted()), \(store.shoppingProgress.display) items checked")
     }
@@ -129,77 +122,66 @@ struct ShoppingListView: View {
         VStack(alignment: .leading, spacing: 5) {
             Label("Estimates didn’t refresh", systemImage: "exclamationmark.triangle.fill")
                 .font(.headline.weight(.bold))
-            Text("Showing the deterministic fixture values. Bought state is still current.")
+            Text("Showing deterministic local values. Bought state is still current.")
                 .font(.subheadline)
             Button("Try again") { Task { await store.retryShopping() } }
                 .font(.subheadline.weight(.bold))
                 .frame(minHeight: 44)
         }
-        .foregroundStyle(Color(hex: 0x8C2A17))
+        .foregroundStyle(WeeknightTheme.tomato)
         .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: 0xFCEAE4))
+        .background(WeeknightTheme.tomato.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
     }
 
     private func aisleGroup(_ aisle: Aisle, items: [ShoppingListItem]) -> some View {
         let progress = Planning.aisleProgress(aisle, items: store.shoppingItems)
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                Text(aisle.rawValue.uppercased())
-                    .font(.caption.weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                Rectangle()
-                    .fill(WeeknightTheme.forest.opacity(0.1))
-                    .frame(height: 1)
-                Text("\(progress.checked)/\(progress.total)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                    .accessibilityIdentifier("aisle-progress-\(aisle.rawValue)")
-            }
-            VStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    shoppingRow(item)
-                    if index < items.count - 1 {
-                        Divider().padding(.leading, 58)
-                    }
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("\(aisle.rawValue.uppercased()) · \(items.count)")
+                .font(.caption.weight(.bold))
+                .tracking(1.8)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .padding(.bottom, 8)
+                .accessibilityIdentifier("aisle-progress-\(aisle.rawValue)")
+                .accessibilityLabel("\(progress.checked)/\(progress.total)")
+
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                shoppingRow(item)
+                if index < items.count - 1 {
+                    Divider().overlay(WeeknightTheme.hairline).padding(.leading, 54)
                 }
             }
-            .weeknightCard()
         }
     }
 
     private func shoppingRow(_ item: ShoppingListItem) -> some View {
         Button {
-            store.toggleShoppingItem(item)
+            withAnimation(reduceMotion ? nil : .easeOut(duration: WeeknightTheme.Motion.settle)) {
+                store.toggleShoppingItem(item)
+            }
+            UISelectionFeedbackGenerator().selectionChanged()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(item.isChecked ? WeeknightTheme.leaf : WeeknightTheme.secondaryText.opacity(0.4))
-                    .frame(width: 32, height: 44)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.ingredient.displayName)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(item.isChecked ? WeeknightTheme.secondaryText : WeeknightTheme.bodyText)
+                    .foregroundStyle(item.isChecked ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
+                    .frame(width: 44, height: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(item.ingredient.displayName) · \(item.quantityDisplay)")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(item.isChecked ? WeeknightTheme.secondaryText.opacity(0.7) : WeeknightTheme.primaryText)
                         .strikethrough(item.isChecked)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(contributionText(item))
                         .font(.caption)
                         .foregroundStyle(WeeknightTheme.secondaryText)
                         .lineLimit(2)
                 }
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(item.quantityDisplay)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(WeeknightTheme.bodyText)
-                    Text(item.estimatedCost.formatted())
-                        .font(.caption)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                }
+                Text(item.estimatedCost.formatted())
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(WeeknightTheme.secondaryText)
             }
-            .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
@@ -214,17 +196,17 @@ struct ShoppingListView: View {
         if item.contributions.count == 1, let only = item.contributions.first {
             return "\(only.day.shortName) · \(only.recipeTitle)"
         }
-        return item.contributions.map(\.day.shortName).joined(separator: " · ")
+        return item.contributions.map(\.day.shortName).joined(separator: ", ")
     }
 
     private var loadingState: some View {
-        VStack(spacing: 15) {
-            ProgressView()
-            Text("Regenerating the shopping list…")
-                .font(.headline)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
+        StateMessageView(
+            icon: "arrow.triangle.2.circlepath",
+            title: "Regenerating the list",
+            message: "Your active week is still the source of truth.",
+            actionTitle: nil,
+            action: nil
+        )
     }
 
     private var errorState: some View {
@@ -240,7 +222,7 @@ struct ShoppingListView: View {
         StateMessageView(
             icon: "basket",
             title: "Nothing to buy yet",
-            message: "Add a dinner to any day and its ingredients will collect here by aisle.",
+            message: "Add a dinner and its ingredients will collect here by aisle.",
             actionTitle: nil,
             action: nil
         )
@@ -255,23 +237,21 @@ private struct StateMessageView: View {
     let action: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 44, weight: .semibold))
-                .foregroundStyle(WeeknightTheme.bottle)
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(WeeknightTheme.forest)
             Text(title)
-                .font(.title2.weight(.heavy))
+                .font(.largeTitle.weight(.black))
                 .foregroundStyle(WeeknightTheme.primaryText)
             Text(message)
-                .multilineTextAlignment(.center)
                 .foregroundStyle(WeeknightTheme.secondaryText)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(ForestActionButtonStyle())
-                    .padding(.top, 4)
+                    .buttonStyle(PrimaryActionButtonStyle())
             }
         }
-        .padding(28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(WeeknightTheme.Spacing.gutter)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }

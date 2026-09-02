@@ -3,22 +3,22 @@ import SwiftUI
 struct DiscoverView: View {
     @Environment(AppStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selectedRecipe: Recipe?
+    @State private var detailRecipeID: Recipe.ID?
+    @State private var visibleRecipeID: Recipe.ID?
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
                 WeeknightTheme.deepestPine.ignoresSafeArea()
                 content(size: proxy.size)
-                if store.recipeMode == .ready, !store.discoverRecipes.isEmpty {
+                if store.recipeMode == .ready || store.recipeMode == .stale,
+                   !store.discoverRecipes.isEmpty {
                     VStack(spacing: 7) {
                         progressHeader
-                        if showsBackendStatus {
-                            BackendStatusView(onDark: true)
-                        }
+                        if showsBackendStatus { BackendStatusView(onDark: true) }
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
                     .padding(.top, 8)
                 }
             }
@@ -28,14 +28,20 @@ struct DiscoverView: View {
             AddToWeekSheet(recipe: recipe, servings: store.preferences.householdSize)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .presentationCornerRadius(WeeknightTheme.Radius.sheet)
         }
-        .task { await store.loadRecipesIfNeeded() }
+        .navigationDestination(item: $detailRecipeID) { recipeID in
+            RecipeDetailsView(
+                recipeID: recipeID,
+                origin: .discover,
+                initialServings: store.preferences.householdSize
+            )
+        }
+        .task {
+            await store.loadRecipesIfNeeded()
+            if visibleRecipeID == nil { visibleRecipeID = store.rankedDiscoverRecipes.first?.id }
+        }
         .accessibilityIdentifier("discover-screen")
-    }
-
-    private var showsBackendStatus: Bool {
-        if case .local = store.backendState { return false }
-        return true
     }
 
     @ViewBuilder
@@ -47,52 +53,37 @@ struct DiscoverView: View {
             statePanel(
                 icon: "wifi.exclamationmark",
                 title: "Recipes didn’t load",
-                message: "The local fixture is unavailable. Try again to restore the feed.",
+                message: "Your local week is safe. Try again to restore the feed.",
                 action: "Try again"
             ) { Task { await store.retryRecipes() } }
         case .empty:
             statePanel(
-                icon: "fork.knife.circle",
+                icon: "fork.knife",
                 title: "No recipes yet",
-                message: "This mock repository is intentionally empty.",
+                message: "There is nothing in this recipe source right now.",
                 action: "Back to Plan"
             ) { store.selectedTab = .plan }
         case .ready, .stale:
             if store.discoverRecipes.isEmpty {
-                let unscheduled = recipesNotAlreadyScheduled
-                if unscheduled.isEmpty {
-                    statePanel(
-                        icon: "checkmark.circle.fill",
-                        title: "Every dinner is planned",
-                        message: "Your active week already contains every available fixture recipe.",
-                        action: "See the plan"
-                    ) { store.selectedTab = .plan }
-                } else {
-                    statePanel(
-                        icon: "slider.horizontal.3",
-                        title: "No recipes meet every hard rule",
-                        message: hardRuleNoResultsMessage,
-                        action: "Review Preferences"
-                    ) { store.selectedTab = .preferences }
-                    .accessibilityIdentifier("discover-no-results")
-                }
-            } else if reduceMotion {
-                recipeScroll(size: size)
-                    .scrollTargetBehavior(.viewAligned)
+                noResultsState
             } else {
-                recipeScroll(size: size)
-                    .scrollTargetBehavior(.paging)
+                recipePages(size: size)
             }
         }
     }
 
-    private func recipeScroll(size: CGSize) -> some View {
-        ScrollView(.vertical) {
+    @ViewBuilder
+    private func recipePages(size: CGSize) -> some View {
+        let pages = ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
-                ForEach(store.rankedDiscoverRecipes) { ranked in
-                    RecipeFeedCard(ranked: ranked) {
-                        selectedRecipe = ranked.recipe
-                    }
+                ForEach(Array(store.rankedDiscoverRecipes.enumerated()), id: \.element.id) { index, ranked in
+                    RecipeFeedPage(
+                        ranked: ranked,
+                        position: index,
+                        count: store.rankedDiscoverRecipes.count,
+                        onDetails: { detailRecipeID = ranked.recipe.id },
+                        onAdd: { selectedRecipe = ranked.recipe }
+                    )
                     .frame(width: size.width, height: size.height)
                     .id(ranked.id)
                 }
@@ -100,90 +91,67 @@ struct DiscoverView: View {
             .scrollTargetLayout()
         }
         .scrollIndicators(.hidden)
-        .id(store.discoverRecipes.map(\.id).joined(separator: "|"))
+        .scrollPosition(id: $visibleRecipeID)
         .accessibilityLabel("Recipe discovery feed")
+
+        if reduceMotion {
+            pages.scrollTargetBehavior(.viewAligned)
+        } else {
+            pages.scrollTargetBehavior(.paging)
+        }
     }
 
-    private var recipesNotAlreadyScheduled: [Recipe] {
+    @ViewBuilder
+    private var noResultsState: some View {
         let scheduled = Set(store.plan.slots.compactMap(\.recipeID))
-        return store.recipes.filter { !scheduled.contains($0.id) }
-    }
-
-    private var hardRuleNoResultsMessage: String {
-        var parts: [String] = []
-        if !store.preferences.medicalAllergens.isEmpty { parts.append("declared allergens") }
-        if !store.preferences.dietaryRestrictions.isEmpty { parts.append("dietary restrictions") }
-        if store.preferences.availableAppliances.count < KitchenAppliance.allCases.count { parts.append("available appliances") }
-        let constraints = parts.isEmpty ? "current eligibility settings" : parts.joined(separator: ", ")
-        return "The remaining local recipes conflict with \(constraints). Hard rules were not weakened."
+        let unscheduled = store.recipes.filter { !scheduled.contains($0.id) }
+        if unscheduled.isEmpty {
+            statePanel(
+                icon: "checkmark.circle.fill",
+                title: "Every dinner is planned",
+                message: "Your active week already contains every available recipe.",
+                action: "See the plan"
+            ) { store.selectedTab = .plan }
+        } else {
+            statePanel(
+                icon: "slider.horizontal.3",
+                title: "No recipes meet every hard rule",
+                message: "The remaining recipes conflict with your current eligibility settings. Hard rules were not weakened.",
+                action: "Review Preferences"
+            ) { store.selectedTab = .preferences }
+            .accessibilityIdentifier("discover-no-results")
+        }
     }
 
     private var progressHeader: some View {
-        HStack(spacing: 11) {
-            Button {
-                store.selectedTab = .plan
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.headline.weight(.bold))
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.16))
-                    .clipShape(Circle())
-            }
-            .accessibilityLabel("Back to Plan")
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(store.filledCount) of \(store.totalCount) dinners chosen")
-                    Text("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
-                        .foregroundStyle(WeeknightTheme.mint)
-                    discoverProgressBar
+        HStack(spacing: 12) {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.28))
+                    Capsule()
+                        .fill(WeeknightTheme.leaf)
+                        .frame(width: proxy.size.width * Double(store.filledCount) / Double(max(1, store.totalCount)))
                 }
-                .font(.subheadline.weight(.bold))
-            } else {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("\(store.filledCount) of \(store.totalCount) dinners chosen")
-                        .font(.subheadline.weight(.bold))
-                    discoverProgressBar
-                }
-                Spacer(minLength: 4)
-                Text("\(store.weeklySpend.formatted())/\(store.plan.budget.formatted())")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.mint)
-                    .lineLimit(1)
             }
+            .frame(height: 3)
+            Text("\(store.weeklySpend.formatted()) / \(store.plan.budget.formatted())")
+                .font(.caption.weight(.bold))
+                .tracking(0.8)
+                .foregroundStyle(WeeknightTheme.photoText)
+                .lineLimit(1)
         }
-        .foregroundStyle(Color.white)
-        .padding(9)
-        .background(.ultraThinMaterial.opacity(0.75))
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .overlay { Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1) }
+        .frame(minHeight: 44)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(store.filledCount) of \(store.totalCount) dinners chosen, \(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
         .accessibilityIdentifier("discover-progress")
     }
 
-    private var discoverProgressBar: some View {
-        GeometryReader { proxy in
-            Capsule()
-                .fill(Color.white.opacity(0.2))
-                .overlay(alignment: .leading) {
-                    Capsule()
-                        .fill(WeeknightTheme.mint)
-                        .frame(width: proxy.size.width * Double(store.filledCount) / Double(max(1, store.totalCount)))
-                }
-        }
-        .frame(height: 5)
-        .accessibilityHidden(true)
-    }
-
     private var loadingState: some View {
-        VStack(spacing: 18) {
-            ProgressView()
-                .tint(WeeknightTheme.mint)
-                .scaleEffect(1.3)
+        VStack(spacing: 16) {
+            ProgressView().tint(WeeknightTheme.leaf)
             Text(store.backendState == .local ? "Loading local recipes…" : "Loading validated recipes…")
                 .font(.headline)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(WeeknightTheme.photoText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -197,146 +165,181 @@ struct DiscoverView: View {
         action: String,
         perform: @escaping () -> Void
     ) -> some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             Image(systemName: icon)
-                .font(.system(size: 46, weight: .semibold))
-                .foregroundStyle(WeeknightTheme.mint)
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(WeeknightTheme.leaf)
             Text(title)
-                .font(.title2.weight(.heavy))
-                .foregroundStyle(Color.white)
+                .font(.largeTitle.weight(.black))
+                .foregroundStyle(WeeknightTheme.photoText)
+                .fixedSize(horizontal: false, vertical: true)
             Text(message)
                 .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.white.opacity(0.75))
+                .foregroundStyle(WeeknightTheme.photoText.opacity(0.76))
+                .fixedSize(horizontal: false, vertical: true)
             Button(action, action: perform)
                 .buttonStyle(PrimaryActionButtonStyle())
-                .padding(.top, 6)
         }
-        .padding(28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(WeeknightTheme.Spacing.gutter)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private var showsBackendStatus: Bool {
+        if case .local = store.backendState { return false }
+        return true
     }
 }
 
-private struct RecipeFeedCard: View {
+private struct RecipeFeedPage: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let ranked: RankedRecipe
+    let position: Int
+    let count: Int
+    let onDetails: () -> Void
     let onAdd: () -> Void
 
     private var recipe: Recipe { ranked.recipe }
     private var servings: Int { store.preferences.householdSize }
     private var cost: Money { store.estimatedCost(for: recipe, servings: servings) }
+    private var firstOpenDay: Weekday? { store.plan.slots.first(where: { $0.recipeID == nil })?.day }
+    private var targetText: String { firstOpenDay.map { "FOR \($0.rawValue.uppercased())" } ?? "FOR YOUR WEEK" }
+    private var addText: String { firstOpenDay.map { "Add to \($0.rawValue)" } ?? "Add to week" }
 
-    private var fit: (text: String, color: Color, background: Color, icon: String) {
+    private var fitText: String {
         if cost.minorUnits > store.remainingBudget.minorUnits {
-            let over = cost - store.remainingBudget
-            return ("\(over.formatted()) over this week", Color(hex: 0x8C2A17), Color(hex: 0xFCE3DC), "exclamationmark.triangle.fill")
+            return "Adds \((cost - store.remainingBudget).formatted()) over budget"
         }
-        if cost.minorUnits * 100 > store.remainingBudget.minorUnits * 55 {
-            return ("Tight, but it fits", Color(hex: 0x7A5604), Color(hex: 0xFDF0D2), "exclamationmark.circle.fill")
+        let after = store.remainingBudget - cost
+        if let next = store.plan.slots.drop(while: { $0.recipeID != nil }).dropFirst().first?.day {
+            return "Leaves \(after.formatted()) for \(next.rawValue)"
         }
-        return ("Fits your budget", WeeknightTheme.forest, WeeknightTheme.wash, "checkmark.circle.fill")
+        return "Leaves \(after.formatted()) in your budget"
     }
 
     var body: some View {
-        ZStack {
-            RecipeArtwork(style: recipe.artwork)
-            LinearGradient(
-                colors: [
-                    WeeknightTheme.deepestPine.opacity(0.58),
-                    Color.clear,
-                    WeeknightTheme.deepestPine.opacity(0.22),
-                    WeeknightTheme.deepestPine.opacity(0.97),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            VStack(alignment: .leading, spacing: 0) {
-                Spacer(minLength: 128)
-                StatusPill(text: fit.text, color: fit.color, background: fit.background, systemImage: fit.icon)
-                Text(recipe.title)
-                    .font(.largeTitle.weight(.heavy))
-                    .foregroundStyle(Color.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 12)
-                    .accessibilityIdentifier("discover-title-\(recipe.id)")
-                HStack(spacing: 9) {
-                    Label("\(recipe.activeMinutes)m", systemImage: "clock")
-                    Text("serves \(servings)")
-                    Text(cost.formatted()).fontWeight(.bold)
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.white.opacity(0.92))
-                .padding(.top, 10)
-                FlowLayout(spacing: 6) {
-                    ForEach(recipe.tags, id: \.self) { TagChip(text: $0, onDark: true) }
-                }
-                .padding(.top, 12)
-                Divider()
-                    .overlay(Color.white.opacity(0.22))
-                    .padding(.vertical, 14)
-                VStack(alignment: .leading, spacing: 7) {
-                    Label {
-                        Text("Why it’s here: \(ranked.explanations.first ?? recipe.rationale)")
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                            .foregroundStyle(WeeknightTheme.mint)
-                    }
-                    if let caution = ranked.cautions.first {
-                        Label(caution, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Color(hex: 0xFFD58A))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Text(recipe.sourceName)
-                        .foregroundStyle(Color.white.opacity(0.62))
-                }
-                .font(.subheadline)
-                .foregroundStyle(Color.white.opacity(0.78))
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("discover-explanation-\(recipe.id)")
-                HStack(spacing: 10) {
-                    NavigationLink {
-                        RecipeDetailsView(
-                            recipeID: recipe.id,
-                            origin: .discover,
-                            initialServings: servings
-                        )
-                    } label: {
-                        Label("Recipe details", systemImage: "book.pages")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(Color.white)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .background(Color.white.opacity(0.16))
-                            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
-                    }
-                    .accessibilityIdentifier("discover-details-\(recipe.id)")
+        GeometryReader { proxy in
+            ZStack {
+                RecipeArtwork(style: recipe.artwork)
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+            PhotoScrim()
 
-                    Button {
-                        store.toggleSaved(recipe.id)
-                    } label: {
-                        Image(systemName: store.isSaved(recipe.id) ? "bookmark.fill" : "bookmark")
+            VStack(alignment: .leading, spacing: 0) {
+                Text(targetText)
+                    .font(.caption.weight(.bold))
+                    .tracking(1.8)
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .background(WeeknightTheme.background)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.top, 76)
+
+                Spacer(minLength: 80)
+
+                HStack(alignment: .bottom, spacing: 14) {
+                    positionTicks
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(recipe.title)
+                            .font(dynamicTypeSize.isAccessibilitySize ? .title.weight(.black) : .system(size: 42, weight: .black))
+                            .foregroundStyle(WeeknightTheme.photoText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                            .accessibilityIdentifier("discover-title-\(recipe.id)")
+                            .overlay {
+                                Button(action: onDetails) {
+                                    Color.clear
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Open \(recipe.title) details")
+                                .accessibilityHint("Opens recipe details")
+                                .accessibilityIdentifier("discover-details-\(recipe.id)")
+                            }
+
+                        Text("\(recipe.activeMinutes) min · serves \(servings) · \(cost.formatted())")
                             .font(.headline)
-                            .foregroundStyle(store.isSaved(recipe.id) ? WeeknightTheme.mint : Color.white)
-                            .frame(width: 48, height: 44)
-                            .background(Color.white.opacity(0.16))
-                            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+                            .foregroundStyle(WeeknightTheme.photoText.opacity(0.9))
+
+                        Label(fitText, systemImage: cost.minorUnits > store.remainingBudget.minorUnits ? "exclamationmark.circle.fill" : "circle.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(cost.minorUnits > store.remainingBudget.minorUnits ? Color(hex: 0xFFB6A7) : WeeknightTheme.leaf)
+
+                        Text(discoveryExplanation)
+                            .font(.caption)
+                            .foregroundStyle(WeeknightTheme.photoText.opacity(0.76))
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                            .accessibilityIdentifier("discover-explanation-\(recipe.id)")
+
+                        if let caution = ranked.cautions.first {
+                            Label(caution, systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(Color(hex: 0xFFD7A0))
+                                .lineLimit(2)
+                        }
                     }
-                    .accessibilityLabel(store.isSaved(recipe.id) ? "Unsave \(recipe.title)" : "Save \(recipe.title)")
-                    .accessibilityValue(store.isSaved(recipe.id) ? "Saved" : "Not saved")
-                    .accessibilityIdentifier("discover-save-\(recipe.id)")
                 }
-                .padding(.top, 16)
-                Button(action: onAdd) {
-                    Label("Add to week", systemImage: "plus")
+
+                GeometryReader { proxy in
+                    HStack(spacing: 12) {
+                        Button {
+                            store.toggleSaved(recipe.id)
+                        } label: {
+                            Text(store.isSaved(recipe.id) ? "SAVED" : "SAVE")
+                                .font(.caption.weight(.bold))
+                                .tracking(1)
+                                .frame(width: 64, height: 54)
+                        }
+                        .foregroundStyle(WeeknightTheme.photoText)
+                        .background(Color.black.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color.white.opacity(0.62), lineWidth: 1)
+                        }
+                        .accessibilityLabel(store.isSaved(recipe.id) ? "Unsave \(recipe.title)" : "Save \(recipe.title)")
+                        .accessibilityValue(store.isSaved(recipe.id) ? "Saved" : "Not saved")
+                        .accessibilityIdentifier("discover-save-\(recipe.id)")
+
+                        Button(addText, action: onAdd)
+                            .buttonStyle(PrimaryActionButtonStyle())
+                            .frame(width: max(0, proxy.size.width - 76))
+                            .accessibilityIdentifier("add-recipe-\(recipe.id)")
+                    }
                 }
-                .buttonStyle(PrimaryActionButtonStyle())
-                .padding(.top, 10)
-                .accessibilityIdentifier("add-recipe-\(recipe.id)")
+                .frame(height: 56)
+                .padding(.top, 18)
+                .padding(.bottom, 18)
             }
-            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-            .padding(.top, 24)
-            .padding(.bottom, 24)
+                .frame(
+                    width: max(0, proxy.size.width - WeeknightTheme.Spacing.gutter * 2),
+                    height: proxy.size.height,
+                    alignment: .leading
+                )
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var discoveryExplanation: String {
+        let dislikeContext = ranked.cautions.filter {
+            $0.localizedCaseInsensitiveContains("marked as disliked")
+        }
+        let messages = ranked.explanations + dislikeContext
+        return messages.isEmpty ? recipe.rationale : messages.joined(separator: " · ")
+    }
+
+    private var positionTicks: some View {
+        VStack(spacing: 6) {
+            ForEach(0..<min(count, 5), id: \.self) { index in
+                Capsule()
+                    .fill(index == position ? WeeknightTheme.photoText : WeeknightTheme.photoText.opacity(0.4))
+                    .frame(width: 3, height: index == position ? 22 : 15)
+            }
+        }
+        .padding(.bottom, 12)
+        .accessibilityHidden(true)
     }
 }

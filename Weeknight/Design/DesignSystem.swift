@@ -1,39 +1,51 @@
 import SwiftUI
 
 enum WeeknightTheme {
-    static let background = Color(hex: 0xFBF5EA)
-    static let surface = Color.white
-    static let surfaceElevated = Color(hex: 0xF7F1E6)
-    static let primaryText = Color(hex: 0x0E2A1C)
-    static let bodyText = Color(hex: 0x1D1B18)
-    static let secondaryText = Color(hex: 0x625E57)
-    static let forest = Color(hex: 0x0E2A1C)
-    static let deepPine = Color(hex: 0x143824)
-    static let deepestPine = Color(hex: 0x0A1F15)
-    static let leaf = Color(hex: 0x3FBE55)
-    static let bottle = Color(hex: 0x186B2C)
-    static let mint = Color(hex: 0x8FE7A8)
-    static let wash = Color(hex: 0xDCF3E1)
-    static let sand = Color(hex: 0xEDE5D5)
-    static let citrus = Color(hex: 0xE9B23C)
-    static let tomato = Color(hex: 0xC4472C)
+    static let background = Color(hex: 0xFBF8EC)
+    static let surface = Color(hex: 0xFBF8EC)
+    static let surfaceElevated = Color(hex: 0xF1E9D8)
+    static let primaryText = Color(hex: 0x14180F)
+    static let bodyText = Color(hex: 0x14180F)
+    static let secondaryText = Color(hex: 0x73776D)
+    static let forest = Color(hex: 0x14512F)
+    static let deepPine = Color(hex: 0x14512F)
+    static let deepestPine = Color(hex: 0x0D2E1D)
+    static let leaf = Color(hex: 0x8FD37A)
+    static let bottle = Color(hex: 0x14512F)
+    static let mint = Color(hex: 0x8FD37A)
+    static let wash = Color(hex: 0xE8EDDF)
+    static let sand = Color(hex: 0xF1E9D8)
+    static let hairline = Color(hex: 0xEBE3D2)
+    static let citrus = Color(hex: 0xB67C20)
+    static let tomato = Color(hex: 0xA03B2A)
+    static let photoText = Color(hex: 0xFBF8EC)
 
     enum Spacing {
         static let xSmall: CGFloat = 4
         static let small: CGFloat = 8
-        static let medium: CGFloat = 12
-        static let standard: CGFloat = 16
-        static let gutter: CGFloat = 20
-        static let large: CGFloat = 24
-        static let xLarge: CGFloat = 32
+        static let medium: CGFloat = 14
+        static let standard: CGFloat = 20
+        static let gutter: CGFloat = 22
+        static let large: CGFloat = 26
+        static let xLarge: CGFloat = 34
     }
 
     enum Radius {
-        static let chip: CGFloat = 999
+        static let chip: CGFloat = 28
         static let thumbnail: CGFloat = 14
         static let row: CGFloat = 18
         static let card: CGFloat = 22
-        static let budget: CGFloat = 26
+        static let budget: CGFloat = 30
+        static let sheet: CGFloat = 30
+        static let button: CGFloat = 28
+    }
+
+    enum Motion {
+        static let quick: Double = 0.12
+        static let settle: Double = 0.26
+        static let sheet: Double = 0.32
+        static let assignment: Double = 0.42
+        static let completion: Double = 0.54
     }
 }
 
@@ -52,13 +64,12 @@ extension Color {
 struct WeeknightCard: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(WeeknightTheme.surface)
+            .background(WeeknightTheme.surfaceElevated.opacity(0.58))
             .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous)
-                    .stroke(WeeknightTheme.forest.opacity(0.07), lineWidth: 1)
+                    .stroke(WeeknightTheme.hairline, lineWidth: 1)
             }
-            .shadow(color: WeeknightTheme.forest.opacity(0.08), radius: 14, y: 8)
     }
 }
 
@@ -70,12 +81,12 @@ struct PrimaryActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(WeeknightTheme.forest)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .foregroundStyle(WeeknightTheme.background)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .padding(.horizontal, WeeknightTheme.Spacing.standard)
-            .background(configuration.isPressed ? WeeknightTheme.leaf.opacity(0.75) : WeeknightTheme.leaf)
-            .clipShape(Capsule())
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .background(configuration.isPressed ? WeeknightTheme.deepestPine : WeeknightTheme.forest)
+            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.button, style: .continuous))
+            .opacity(configuration.isPressed ? 0.9 : 1)
     }
 }
 
@@ -84,10 +95,53 @@ struct ForestActionButtonStyle: ButtonStyle {
         configuration.label
             .font(.headline.weight(.bold))
             .foregroundStyle(WeeknightTheme.background)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .padding(.horizontal, WeeknightTheme.Spacing.standard)
             .background(configuration.isPressed ? WeeknightTheme.deepPine : WeeknightTheme.forest)
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.button, style: .continuous))
     }
 }
 
+struct SecondaryActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.bold))
+            .foregroundStyle(WeeknightTheme.primaryText)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .padding(.horizontal, WeeknightTheme.Spacing.standard)
+            .background(configuration.isPressed ? WeeknightTheme.surfaceElevated : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(WeeknightTheme.secondaryText.opacity(0.42), lineWidth: 1)
+            }
+    }
+}
+
+struct NotchedDayTabShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let radius: CGFloat = min(12, rect.height / 3)
+        let notch: CGFloat = min(14, rect.width / 6)
+        var path = Path()
+        path.move(to: CGPoint(x: radius, y: 0))
+        path.addLine(to: CGPoint(x: rect.maxX - notch, y: 0))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: notch),
+            control: CGPoint(x: rect.maxX - 2, y: 1)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - radius, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: radius, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: 0, y: rect.maxY - radius),
+            control: CGPoint(x: 0, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: 0, y: radius))
+        path.addQuadCurve(to: CGPoint(x: radius, y: 0), control: CGPoint(x: 0, y: 0))
+        path.closeSubpath()
+        return path
+    }
+}

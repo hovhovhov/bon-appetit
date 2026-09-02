@@ -76,7 +76,8 @@ struct BackendStatusView: View {
 struct BudgetProgressBar: View {
     let spent: Money
     let budget: Money
-    var height: CGFloat = 10
+    var height: CGFloat = 3
+    var onPhotography = false
 
     private var fraction: Double {
         guard budget.minorUnits > 0 else { return 0 }
@@ -86,13 +87,13 @@ struct BudgetProgressBar: View {
     private var fill: Color {
         if spent.minorUnits > budget.minorUnits { return WeeknightTheme.tomato }
         if spent.minorUnits * 100 > budget.minorUnits * 85 { return WeeknightTheme.citrus }
-        return WeeknightTheme.mint
+        return onPhotography ? WeeknightTheme.leaf : WeeknightTheme.forest
     }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule().fill(WeeknightTheme.background.opacity(0.18))
+                Capsule().fill(onPhotography ? Color.white.opacity(0.28) : WeeknightTheme.hairline)
                 Capsule()
                     .fill(fill)
                     .frame(width: proxy.size.width * fraction)
@@ -110,11 +111,8 @@ struct TagChip: View {
     var body: some View {
         Text(text)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(onDark ? Color.white : WeeknightTheme.bottle)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(onDark ? Color.white.opacity(0.17) : WeeknightTheme.wash.opacity(0.75))
-            .clipShape(Capsule())
+            .foregroundStyle(onDark ? WeeknightTheme.photoText : WeeknightTheme.secondaryText)
+            .padding(.trailing, 8)
     }
 }
 
@@ -122,38 +120,87 @@ struct RecipeArtwork: View {
     let style: ArtworkStyle
     var compact = false
 
-    private var palette: [Color] {
-        switch style {
-        case .honeySoy: return [Color(hex: 0xB66A32), Color(hex: 0x3F7C42), Color(hex: 0xF2D7A0)]
-        case .chilli: return [Color(hex: 0x8C2A17), Color(hex: 0xD17B2E), Color(hex: 0xF2C96D)]
-        case .stirFry: return [Color(hex: 0xD87543), Color(hex: 0x6DAF58), Color(hex: 0xE7C46A)]
-        case .carbonara: return [Color(hex: 0xE5B843), Color(hex: 0xF4E2A7), Color(hex: 0x8C5438)]
-        case .curry: return [Color(hex: 0xB95A1C), Color(hex: 0xE9A62E), Color(hex: 0x2F7541)]
-        case .caesar: return [Color(hex: 0x4D8A46), Color(hex: 0xB7CB73), Color(hex: 0xE3C18A)]
-        case .chopped: return [Color(hex: 0xE45B3F), Color(hex: 0xE9B23C), Color(hex: 0x4FA85A)]
-        case .steak: return [Color(hex: 0x613729), Color(hex: 0xC98B3B), Color(hex: 0x2F6A42)]
-        }
-    }
-
     var body: some View {
-        ZStack {
-            LinearGradient(colors: palette, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Circle()
-                .fill(Color.white.opacity(0.18))
-                .frame(width: compact ? 70 : 260)
-                .offset(x: compact ? 18 : 74, y: compact ? -12 : -90)
-            RoundedRectangle(cornerRadius: compact ? 12 : 44, style: .continuous)
-                .fill(palette[2].opacity(0.48))
-                .frame(width: compact ? 76 : 300, height: compact ? 36 : 150)
-                .rotationEffect(.degrees(-12))
-                .offset(x: compact ? -16 : -92, y: compact ? 20 : 120)
-            Image(systemName: compact ? "fork.knife" : "fork.knife.circle.fill")
-                .font(.system(size: compact ? 24 : 94, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.82))
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-        }
+        Image("recipe_\(style.rawValue)")
+            .resizable()
+            .scaledToFill()
         .clipped()
         .accessibilityHidden(true)
+    }
+}
+
+struct NotchedDayTab: View {
+    let text: String
+    var compact = false
+
+    var body: some View {
+        Text(text.uppercased())
+            .font((compact ? Font.caption2 : Font.caption).weight(.bold))
+            .tracking(compact ? 1.1 : 1.8)
+            .foregroundStyle(WeeknightTheme.primaryText)
+            .padding(.horizontal, compact ? 9 : 14)
+            .frame(minHeight: compact ? 30 : 38)
+            .background(WeeknightTheme.background)
+            .clipShape(NotchedDayTabShape())
+    }
+}
+
+struct PhotoScrim: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: Color.black.opacity(0.12), location: 0),
+                .init(color: Color.clear, location: 0.38),
+                .init(color: Color.black.opacity(0.34), location: 0.63),
+                .init(color: Color.black.opacity(0.9), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .accessibilityHidden(true)
+    }
+}
+
+/// A compact, wrapping layout for the handful of editorial tags used across recipe surfaces.
+struct FlowLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let availableWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > availableWidth, x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return CGSize(width: availableWidth.isFinite ? availableWidth : x, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
 

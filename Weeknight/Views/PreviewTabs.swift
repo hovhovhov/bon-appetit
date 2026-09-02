@@ -6,13 +6,17 @@ struct SavedView: View {
     @State private var filter: SavedFilter = .all
     @State private var addRecipe: Recipe?
     @State private var swapDay: Weekday?
+    @State private var selectedRecipeID: Recipe.ID?
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         _query = State(initialValue: arguments.contains("--saved-no-results") ? "No matching supper" : "")
     }
 
-    private var results: [Recipe] {
-        store.savedRecipes(matching: query, filter: filter)
+    private var results: [Recipe] { store.savedRecipes(matching: query, filter: filter) }
+    private var mosaicRecipes: [Recipe] { Array(results.prefix(3)) }
+    private var recentRecipes: [Recipe] {
+        if results.count > 3 { return Array(results.dropFirst(3)) }
+        return results.count < 3 ? results : []
     }
 
     var body: some View {
@@ -24,7 +28,7 @@ struct SavedView: View {
                 statePanel(
                     icon: "exclamationmark.arrow.triangle.2.circlepath",
                     title: "Saved recipes didn’t load",
-                    message: "Your local library is still on this iPhone. Try loading it again.",
+                    message: "Your local library is still on this iPhone.",
                     action: "Try again"
                 ) { Task { await store.retrySaved() } }
             case .empty:
@@ -34,212 +38,231 @@ struct SavedView: View {
             }
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
-        .navigationTitle("Saved")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarHidden(true)
+        .navigationDestination(item: $selectedRecipeID) { recipeID in
+            if let recipe = store.recipesForCalculations.first(where: { $0.id == recipeID }) {
+                RecipeDetailsView(
+                    recipeID: recipe.id,
+                    origin: .saved,
+                    initialServings: store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
+                )
+            }
+        }
         .sheet(item: $addRecipe) { recipe in
             AddToWeekSheet(recipe: recipe, servings: store.preferences.householdSize)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .presentationCornerRadius(WeeknightTheme.Radius.sheet)
         }
         .sheet(item: $swapDay) { day in
             SwapMealSheet(day: day) {}
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+                .presentationCornerRadius(WeeknightTheme.Radius.sheet)
         }
         .accessibilityIdentifier("saved-screen")
     }
 
     private var library: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("Your recipe shelf")
-                        .font(.title2.weight(.heavy))
+                    Text("Saved")
+                        .font(.largeTitle.weight(.black))
                         .foregroundStyle(WeeknightTheme.primaryText)
                     Spacer()
-                    Text("\(store.savedCount) saved")
-                        .font(.subheadline.weight(.semibold))
+                    Text("\(store.savedCount) recipes")
+                        .font(.headline)
                         .foregroundStyle(WeeknightTheme.secondaryText)
                         .accessibilityIdentifier("saved-count")
                 }
+                .padding(.top, WeeknightTheme.Spacing.standard)
 
                 searchField
                 filterPicker
 
                 if store.savedCount == 0 {
-                    emptyState
-                        .frame(minHeight: 360)
+                    emptyState.frame(minHeight: 420)
                 } else if results.isEmpty {
-                    noResultsState
-                        .frame(minHeight: 330)
+                    noResultsState.frame(minHeight: 390)
                 } else {
-                    ForEach(results) { recipe in
-                        savedCard(recipe)
+                    if !mosaicRecipes.isEmpty { savedMosaic }
+                    if !recentRecipes.isEmpty {
+                        Text("RECENTLY SAVED")
+                            .font(.caption.weight(.bold))
+                            .tracking(1.8)
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                            .padding(.top, 4)
+                        ForEach(recentRecipes) { recipe in
+                            savedRow(recipe)
+                            Divider().overlay(WeeknightTheme.hairline)
+                        }
                     }
                 }
             }
             .padding(.horizontal, WeeknightTheme.Spacing.gutter)
             .padding(.bottom, WeeknightTheme.Spacing.xLarge)
         }
+        .scrollIndicators(.hidden)
     }
 
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(WeeknightTheme.secondaryText)
-            TextField("Search recipes, tags or ingredients", text: $query)
+            TextField("Search recipes, tags or ingredients…", text: $query)
                 .textInputAutocapitalization(.never)
                 .submitLabel(.search)
                 .accessibilityIdentifier("saved-search")
             if !query.isEmpty {
-                Button {
-                    query = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .frame(width: 44, height: 44)
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
                 }
                 .foregroundStyle(WeeknightTheme.secondaryText)
                 .accessibilityLabel("Clear search")
                 .accessibilityIdentifier("clear-saved-search")
             }
         }
-        .padding(.leading, 14)
+        .padding(.leading, 16)
         .frame(minHeight: 52)
-        .background(WeeknightTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(WeeknightTheme.forest.opacity(0.12), lineWidth: 1)
-        }
+        .background(WeeknightTheme.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 
     private var filterPicker: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(SavedFilter.allCases) { option in
-                    Button {
-                        filter = option
-                    } label: {
-                        Text(option.rawValue)
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 44)
-                            .background(filter == option ? WeeknightTheme.forest : WeeknightTheme.surface)
-                            .foregroundStyle(filter == option ? WeeknightTheme.background : WeeknightTheme.primaryText)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(filter == option ? .isSelected : [])
-                    .accessibilityIdentifier("saved-filter-\(option == .all ? "all" : "recent")")
+        HStack(spacing: 18) {
+            ForEach(SavedFilter.allCases) { option in
+                Button {
+                    filter = option
+                } label: {
+                    Text(option.rawValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(filter == option ? WeeknightTheme.forest : WeeknightTheme.secondaryText)
+                        .frame(minHeight: 44)
+                        .overlay(alignment: .bottom) {
+                            if filter == option {
+                                Capsule().fill(WeeknightTheme.forest).frame(height: 2)
+                            }
+                        }
                 }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(filter == option ? .isSelected : [])
+                .accessibilityIdentifier("saved-filter-\(option == .all ? "all" : "recent")")
             }
+            Spacer()
         }
-        .scrollIndicators(.hidden)
         .accessibilityLabel("Saved recipe filters")
     }
 
-    private func savedCard(_ recipe: Recipe) -> some View {
-        let displayServings = store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
-        return VStack(spacing: 0) {
-            NavigationLink {
-                RecipeDetailsView(
-                    recipeID: recipe.id,
-                    origin: .saved,
-                    initialServings: store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
-                )
+    private var savedMosaic: some View {
+        Group {
+            if mosaicRecipes.count >= 3 {
+                HStack(spacing: 7) {
+                    mosaicTile(mosaicRecipes[0])
+                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 7) {
+                        mosaicTile(mosaicRecipes[1])
+                        mosaicTile(mosaicRecipes[2])
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .frame(height: 282)
+            } else {
+                ForEach(mosaicRecipes) { savedRow($0) }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
+    }
+
+    private func mosaicTile(_ recipe: Recipe) -> some View {
+        let servings = store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
+        return Button {
+            selectedRecipeID = recipe.id
+        } label: {
+            ZStack(alignment: .bottomLeading) {
+                RecipeArtwork(style: recipe.artwork)
+                LinearGradient(colors: [.clear, .black.opacity(0.66)], startPoint: .center, endPoint: .bottom)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(recipe.title)
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(WeeknightTheme.photoText)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("\(recipe.activeMinutes) min · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
+                        .font(.caption)
+                        .foregroundStyle(WeeknightTheme.photoText.opacity(0.84))
+                }
+                .padding(12)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("saved-recipe-\(recipe.id)")
+        .accessibilityLabel("\(recipe.title), \(recipe.activeMinutes) minutes, \(store.estimatedCost(for: recipe, servings: servings).formatted())")
+    }
+
+    private func savedRow(_ recipe: Recipe) -> some View {
+        let servings = store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
+        return HStack(spacing: 12) {
+            Button {
+                selectedRecipeID = recipe.id
             } label: {
-                HStack(alignment: .top, spacing: 13) {
+                HStack(spacing: 12) {
                     RecipeArtwork(style: recipe.artwork, compact: true)
-                        .frame(width: 96, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    VStack(alignment: .leading, spacing: 7) {
-                        if let slot = store.scheduledSlot(for: recipe.id) {
-                            StatusPill(
-                                text: slot.day.rawValue,
-                                color: WeeknightTheme.forest,
-                                background: WeeknightTheme.mint,
-                                systemImage: "calendar"
-                            )
-                        } else if !store.eligibility(for: recipe).isEligible {
-                            StatusPill(
-                                text: "Conflicts with setup",
-                                color: Color(hex: 0x8C2A17),
-                                background: Color(hex: 0xFCEAE4),
-                                systemImage: "exclamationmark.triangle.fill"
-                            )
-                        }
+                        .frame(width: 58, height: 58)
+                        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(recipe.title)
                             .font(.headline.weight(.bold))
                             .foregroundStyle(WeeknightTheme.primaryText)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("\(recipe.sourceName) · \(recipe.activeMinutes)m · \(store.estimatedCost(for: recipe, servings: displayServings).formatted())")
-                            .font(.caption.weight(.semibold))
+                        Text("\(recipe.sourceName) · \(recipe.activeMinutes) min · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
+                            .font(.subheadline)
                             .foregroundStyle(WeeknightTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(2)
                     }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(WeeknightTheme.secondaryText)
                 }
-                .padding(13)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("saved-recipe-\(recipe.id)")
 
-            Divider().padding(.horizontal, 13)
+            Spacer(minLength: 4)
 
-            HStack(spacing: 8) {
-                Button {
-                    if let slot = store.scheduledSlot(for: recipe.id) {
-                        swapDay = slot.day
-                    } else {
-                        addRecipe = recipe
-                    }
-                } label: {
-                    Label(
-                        store.scheduledSlot(for: recipe.id) == nil ? "Add to week" : "Swap meal",
-                        systemImage: store.scheduledSlot(for: recipe.id) == nil ? "plus" : "arrow.triangle.2.circlepath"
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 44)
+            Menu {
+                Button(store.scheduledSlot(for: recipe.id) == nil ? "Add to week" : "Swap meal") {
+                    if let slot = store.scheduledSlot(for: recipe.id) { swapDay = slot.day } else { addRecipe = recipe }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(WeeknightTheme.bottle)
                 .disabled(store.scheduledSlot(for: recipe.id) == nil && !store.eligibility(for: recipe).isEligible)
-                .accessibilityIdentifier("saved-plan-action-\(recipe.id)")
-                .accessibilityHint(store.eligibility(for: recipe).isEligible ? "Updates the plan and shopping list" : "Unavailable because this recipe conflicts with a hard preference")
-
-                Button {
-                    store.toggleSaved(recipe.id)
-                } label: {
-                    Label("Unsave", systemImage: "bookmark.slash")
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("saved-unsave-\(recipe.id)")
+                Button("Unsave", role: .destructive) { store.toggleSaved(recipe.id) }
+            } label: {
+                Text("Add")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(WeeknightTheme.forest)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(WeeknightTheme.forest, lineWidth: 1)
+                    }
             }
-            .padding(13)
+            .accessibilityIdentifier("saved-plan-action-\(recipe.id)")
         }
-        .weeknightCard()
+        .padding(.vertical, 9)
     }
 
     private var loadingState: some View {
         VStack(spacing: 14) {
-            ProgressView()
-                .tint(WeeknightTheme.bottle)
-            Text("Loading saved recipes…")
-                .font(.headline)
-                .foregroundStyle(WeeknightTheme.primaryText)
+            ProgressView().tint(WeeknightTheme.forest)
+            Text("Loading saved recipes…").font(.headline)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityLabel("Loading saved recipes")
     }
 
     private var emptyState: some View {
         statePanel(
             icon: "bookmark",
-            title: "Your saved shelf is empty",
-            message: "Save a recipe from Discover or Recipe details and it will appear here.",
-            action: "Open Discover"
+            title: "Nothing saved yet",
+            message: "Save a dinner from Discover and it will wait here for the right night.",
+            action: "Find dinners"
         ) { store.selectedTab = .discover }
         .accessibilityIdentifier("saved-empty-state")
     }
@@ -261,98 +284,20 @@ struct SavedView: View {
         action: String,
         perform: @escaping () -> Void
     ) -> some View {
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 42, weight: .semibold))
-                .foregroundStyle(WeeknightTheme.bottle)
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(WeeknightTheme.forest)
             Text(title)
-                .font(.title2.weight(.heavy))
+                .font(.largeTitle.weight(.black))
                 .foregroundStyle(WeeknightTheme.primaryText)
-                .multilineTextAlignment(.center)
             Text(message)
                 .font(.body)
                 .foregroundStyle(WeeknightTheme.secondaryText)
-                .multilineTextAlignment(.center)
             Button(action, action: perform)
-                .buttonStyle(ForestActionButtonStyle())
+                .buttonStyle(PrimaryActionButtonStyle())
         }
-        .padding(26)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct PreferencesPreviewView: View {
-    @Environment(AppStore.self) private var store
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Your setup")
-                    .font(.largeTitle.weight(.heavy))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                Text("Preferences editing is planned for a later milestone. These values describe the active fixture and are read-only here.")
-                    .font(.body)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("PLANNING FOR")
-                        .font(.caption.weight(.bold))
-                        .tracking(1.3)
-                        .foregroundStyle(WeeknightTheme.background.opacity(0.62))
-                    Text("1 person · 5 dinners a week · \(store.plan.budget.formatted()) at \(store.plan.storeName)")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(WeeknightTheme.background)
-                }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(WeeknightTheme.deepPine)
-                .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
-
-                VStack(spacing: 0) {
-                    staticRow("Supermarket", value: store.plan.storeName, effect: "Prices")
-                    Divider().padding(.leading, 16)
-                    staticRow("Cooking days", value: "Mon, Tue, Wed, Thu, Fri", effect: "Plan")
-                    Divider().padding(.leading, 16)
-                    staticRow("Weekly budget", value: store.plan.budget.formatted(), effect: "Budget")
-                }
-                .weeknightCard()
-
-                Button {
-                    store.resetFixture()
-                } label: {
-                    Label("Reset demo week", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(ForestActionButtonStyle())
-                .accessibilityHint("Restores the canonical three-dinner fixture and shopping progress")
-                .accessibilityIdentifier("reset-fixture")
-            }
-            .padding(WeeknightTheme.Spacing.gutter)
-        }
-        .background(WeeknightTheme.background.ignoresSafeArea())
-        .navigationBarHidden(true)
-    }
-
-    private func staticRow(_ title: String, value: String, effect: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(title)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                Text(effect.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .tracking(0.8)
-                    .foregroundStyle(WeeknightTheme.bottle)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(WeeknightTheme.wash)
-                    .clipShape(Capsule())
-            }
-            Text(value)
-                .font(.body)
-                .foregroundStyle(WeeknightTheme.secondaryText)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }

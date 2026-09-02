@@ -52,25 +52,33 @@ struct RecipeDetailsView: View {
                 Button {
                     dismiss()
                 } label: {
-                    Label("Back to \(origin.rawValue)", systemImage: "chevron.left")
+                    Image(systemName: "chevron.left")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.photoText)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black.opacity(0.28))
+                        .clipShape(Circle())
                 }
+                .accessibilityLabel("Back to \(origin.rawValue)")
                 .accessibilityIdentifier("recipe-details-back")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     store.toggleSaved(recipeID)
                 } label: {
-                    Label(
-                        store.isSaved(recipeID) ? "Unsave recipe" : "Save recipe",
-                        systemImage: store.isSaved(recipeID) ? "bookmark.fill" : "bookmark"
-                    )
+                    Image(systemName: store.isSaved(recipeID) ? "bookmark.fill" : "bookmark")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.photoText)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black.opacity(0.28))
+                        .clipShape(Circle())
                 }
+                .accessibilityLabel(store.isSaved(recipeID) ? "Unsave recipe" : "Save recipe")
                 .accessibilityValue(store.isSaved(recipeID) ? "Saved" : "Not saved")
                 .accessibilityIdentifier("details-save-\(recipeID)")
             }
         }
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarBackground(WeeknightTheme.background, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .task {
             guard !didLoadNote else { return }
@@ -83,14 +91,12 @@ struct RecipeDetailsView: View {
 
     private func details(_ recipe: Recipe) -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
+            LazyVStack(alignment: .leading, spacing: 26) {
                 hero(recipe)
                 if !store.eligibility(for: recipe).isEligible {
                     eligibilityWarning(recipe)
                         .padding(.horizontal, WeeknightTheme.Spacing.gutter)
                 }
-                overview(recipe)
-                servingEditor(recipe)
                 ingredients(recipe)
                 method(recipe)
                 notes
@@ -98,6 +104,7 @@ struct RecipeDetailsView: View {
             }
             .padding(.bottom, scheduledSlot == nil ? 108 : 176)
         }
+        .ignoresSafeArea(edges: .top)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             actionBar(recipe)
@@ -142,68 +149,32 @@ struct RecipeDetailsView: View {
     }
 
     private func hero(_ recipe: Recipe) -> some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 0) {
-                    RecipeArtwork(style: recipe.artwork)
-                        .frame(height: 210)
-                        .clipped()
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let scheduledSlot {
-                            Label("Planned for \(scheduledSlot.day.rawValue)", systemImage: "calendar.badge.checkmark")
-                                .font(.headline.weight(.bold))
-                                .foregroundStyle(WeeknightTheme.deepestPine)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(WeeknightTheme.mint)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
-                        Text(recipe.title)
-                            .font(.title.weight(.heavy))
-                            .foregroundStyle(.white)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("By \(recipe.sourceName)")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(WeeknightTheme.Spacing.gutter)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(WeeknightTheme.deepestPine)
-                }
-            } else {
-                ZStack(alignment: .bottomLeading) {
-                    RecipeArtwork(style: recipe.artwork)
-                        .frame(height: 285)
-                    LinearGradient(
-                        colors: [.clear, WeeknightTheme.deepestPine.opacity(0.88)],
-                        startPoint: .center,
-                        endPoint: .bottom
-                    )
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let scheduledSlot {
-                            StatusPill(
-                                text: "Planned for \(scheduledSlot.day.rawValue)",
-                                color: WeeknightTheme.forest,
-                                background: WeeknightTheme.mint,
-                                systemImage: "calendar.badge.checkmark"
-                            )
-                        }
-                        Text(recipe.title)
-                            .font(.largeTitle.weight(.heavy))
-                            .foregroundStyle(.white)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("By \(recipe.sourceName)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                    .padding(WeeknightTheme.Spacing.gutter)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                RecipeArtwork(style: recipe.artwork)
+                    .frame(height: dynamicTypeSize.isAccessibilitySize ? 220 : 292)
+                NotchedDayTab(text: scheduledSlot.map { "PLANNED · \($0.day.shortName)" } ?? recipe.sourceName)
+                    .padding(.leading, WeeknightTheme.Spacing.gutter)
+                    .offset(y: 1)
             }
+            .clipShape(.rect(bottomLeadingRadius: 30, bottomTrailingRadius: 30))
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(recipe.title)
+                    .font(dynamicTypeSize.isAccessibilitySize ? .title.weight(.black) : .largeTitle.weight(.black))
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("\(recipe.activeMinutes) min active · serves \(servingDraft.value) · \(store.estimatedCost(for: recipe, servings: servingDraft.value).formatted()) estimated")
+                    .font(.headline)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+                Text(recipe.rationale)
+                    .font(.title3)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+            .padding(.top, 16)
         }
-        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.budget, style: .continuous))
-        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-        .padding(.top, 8)
         .accessibilityElement(children: .combine)
     }
 
@@ -309,7 +280,18 @@ struct RecipeDetailsView: View {
 
     private func ingredients(_ recipe: Recipe) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Ingredients", detail: "For \(servingDraft.value) serving\(servingDraft.value == 1 ? "" : "s")")
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center) {
+                    Text("Ingredients")
+                        .font(.title2.weight(.black))
+                    Spacer()
+                    servingControls(recipe)
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Ingredients").font(.title2.weight(.black))
+                    servingControls(recipe)
+                }
+            }
             ForEach(Array(recipe.ingredients.enumerated()), id: \.element.ingredient.id) { index, entry in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(entry.quantity(for: servingDraft.value, baseServings: recipe.servings))
@@ -326,12 +308,61 @@ struct RecipeDetailsView: View {
                         .foregroundStyle(WeeknightTheme.secondaryText)
                 }
                 .accessibilityElement(children: .combine)
-                if index < recipe.ingredients.count - 1 { Divider() }
+                if index < recipe.ingredients.count - 1 { Divider().overlay(WeeknightTheme.hairline) }
+            }
+            if servingDraft.isEdited {
+                Label("Preview edited — not applied yet", systemImage: "pencil.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(WeeknightTheme.citrus)
+                    .accessibilityIdentifier("servings-edited-state")
             }
         }
-        .padding(16)
-        .weeknightCard()
         .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+    }
+
+    private func servingControls(_ recipe: Recipe) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                servingDraft.decrement()
+                commitState = .idle
+            } label: {
+                Image(systemName: "minus").frame(width: 44, height: 44)
+            }
+            .foregroundStyle(WeeknightTheme.secondaryText)
+            .background(WeeknightTheme.background)
+            .clipShape(Circle())
+            .overlay { Circle().stroke(WeeknightTheme.hairline, lineWidth: 1) }
+            .disabled(!servingDraft.canDecrement || isCommitting)
+            .accessibilityLabel("Decrease servings")
+            .accessibilityIdentifier("servings-decrease")
+
+            Text("\(servingDraft.value)")
+                .font(.title3.weight(.black))
+                .frame(minWidth: 34)
+                .accessibilityLabel("\(servingDraft.value) servings")
+                .accessibilityIdentifier("servings-value")
+
+            Button {
+                servingDraft.increment()
+                commitState = .idle
+            } label: {
+                Image(systemName: "plus").frame(width: 44, height: 44)
+            }
+            .foregroundStyle(WeeknightTheme.background)
+            .background(WeeknightTheme.forest)
+            .clipShape(Circle())
+            .disabled(!servingDraft.canIncrement || isCommitting)
+            .accessibilityLabel("Increase servings")
+            .accessibilityIdentifier("servings-increase")
+
+            Text(store.estimatedCost(for: recipe, servings: servingDraft.value).formatted())
+                .font(.caption)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityIdentifier("servings-cost-preview")
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private func method(_ recipe: Recipe) -> some View {
@@ -360,6 +391,17 @@ struct RecipeDetailsView: View {
     private var notes: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("Your notes", detail: noteIsEdited ? "Edited, not saved" : "Saved locally")
+            Button {
+                store.saveNote(noteDraft, for: recipeID)
+                committedNote = store.note(for: recipeID)
+                noteDraft = committedNote
+            } label: {
+                Label(noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Clear note" : "Save note", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(ForestActionButtonStyle())
+            .disabled(!noteIsEdited)
+            .opacity(noteIsEdited ? 1 : 0.5)
+            .accessibilityIdentifier("save-recipe-note")
             TextEditor(text: $noteDraft)
                 .font(.body)
                 .frame(minHeight: 110)
@@ -374,17 +416,6 @@ struct RecipeDetailsView: View {
                 .accessibilityLabel("Recipe note")
                 .accessibilityHint(noteIsEdited ? "Edited, not saved" : "Saved locally")
                 .accessibilityIdentifier("recipe-note-editor")
-            Button {
-                store.saveNote(noteDraft, for: recipeID)
-                committedNote = store.note(for: recipeID)
-                noteDraft = committedNote
-            } label: {
-                Label(noteDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Clear note" : "Save note", systemImage: "square.and.arrow.down")
-            }
-            .buttonStyle(ForestActionButtonStyle())
-            .disabled(!noteIsEdited)
-            .opacity(noteIsEdited ? 1 : 0.5)
-            .accessibilityIdentifier("save-recipe-note")
         }
         .padding(16)
         .weeknightCard()
@@ -487,7 +518,8 @@ struct RecipeDetailsView: View {
         .padding(.horizontal, WeeknightTheme.Spacing.gutter)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
+        .background(WeeknightTheme.background)
+        .overlay(alignment: .top) { Divider().overlay(WeeknightTheme.hairline) }
     }
 
     private func clearScheduledMeal(day: Weekday) {

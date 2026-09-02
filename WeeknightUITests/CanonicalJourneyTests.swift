@@ -47,6 +47,13 @@ final class CanonicalJourneyTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["plan-headline"].label, "Your week is ready to shop")
         XCTAssertEqual(app.staticTexts["plan-progress"].label, "5 of 5 dinners planned")
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 36"))
+        let completionToast = app.staticTexts
+            .matching(NSPredicate(format: "label CONTAINS %@", "The week and shopping list are updated"))
+            .firstMatch
+        if completionToast.exists {
+            XCTAssertTrue(completionToast.waitForNonExistence(timeout: 4))
+        }
+        capture("04-plan-completed")
 
         app.buttons["open-shopping-list"].tap()
         XCTAssertTrue(element("shopping-list-screen").waitForExistence(timeout: 5))
@@ -84,6 +91,27 @@ final class CanonicalJourneyTests: XCTestCase {
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+final class Milestone45VisualStateTests: XCTestCase {
+    func testEmptyPlanVisualState() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--reset-fixture",
+            "--v2-empty-plan",
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Nothing planned yet"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["plan-progress"].label, "0 of 5 dinners planned")
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "23-plan-empty"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

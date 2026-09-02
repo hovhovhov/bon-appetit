@@ -80,6 +80,11 @@ final class AppStore {
             canonical.preferences.weeklyBudget = Money(minorUnits: 4_000)
             canonical.plan.budget = Money(minorUnits: 4_000)
         }
+        if arguments.contains("--v2-empty-plan") {
+            canonical.plan.slots = canonical.plan.slots.map { slot in
+                MealSlot(day: slot.day, recipeID: nil, servings: slot.servings)
+            }
+        }
 
         let snapshot: AppSnapshot
         var persistenceErrorMessage: String?
