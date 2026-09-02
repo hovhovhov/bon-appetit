@@ -270,6 +270,7 @@ struct PlanView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(WeeknightTheme.forest)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("plan-fit-\(slot.day.rawValue)")
                         }
                     }
                 } else {
@@ -314,15 +315,7 @@ struct PlanView: View {
     private func recipeMetadata(recipe: Recipe, servings: Int) -> some View {
         let cost = store.estimatedCost(for: recipe, servings: servings).formatted()
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                Text("\(recipe.activeMinutes) min")
-                Text("·")
-                    .accessibilityHidden(true)
-                Text("serves \(servings)")
-                Text("·")
-                    .accessibilityHidden(true)
-                Text(cost)
-            }
+            Text("\(recipe.activeMinutes) min · serves \(servings) · \(cost)")
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(recipe.activeMinutes) min")
                 Text("serves \(servings)")

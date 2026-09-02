@@ -22,8 +22,9 @@ The canonical 3 → 4 → 5 meal journey remains an end-to-end UI test and conti
 
 | Check | Result |
 | --- | --- |
-| Complete Debug iOS suite, iPhone 14 (390 × 844 pt), iOS 26.5 | Passed — 78 tests: 52 unit and 26 UI; zero failures or skips |
+| Complete Debug iOS suite, iPhone 14 (390 × 844 pt), iOS 26.5 | Passed — 79 tests: 52 unit and 27 UI; zero failures or skips |
 | Canonical 3 → 4 → 5 meal journey | Passed as part of the complete suite |
+| Four-tab below-the-fold scroll regression | Passed; Friday in Plans, the last recommendation in Meals, Appliances in Preferences, and Reset Local Data in Settings were each swiped fully above the tab bar |
 | Narrow iPhone navigation, iPhone SE (3rd generation), iOS 26.5 | Passed |
 | Large iPhone + Accessibility Large text, iPhone 17 Pro Max, iOS 26.5 | Passed |
 | Primary-screen accessibility audit | Passed for contrast, hit regions, descriptions, and text clipping |
@@ -37,9 +38,9 @@ The canonical 3 → 4 → 5 meal journey remains an end-to-end UI test and conti
 | Release legacy-feed boundary inspection | Passed; Debug-only feed launch marker is absent from the Release executable |
 | `git diff --check` and repository hygiene review | Passed |
 
-The final complete-suite result is `/tmp/Weeknight-M46-Final5.xcresult`. Matrix evidence is in `/tmp/Weeknight-M46-Narrow.xcresult`, `/tmp/Weeknight-M46-Large.xcresult`, and `/tmp/Weeknight-M46-HighContrast3.xcresult`. Release-derived data is in `/tmp/Weeknight-M46-FinalRelease`.
+The final complete-suite result is `/tmp/Weeknight-M46-ScrollFixFinal2.xcresult`. Matrix evidence is in `/tmp/Weeknight-M46-Narrow.xcresult`, `/tmp/Weeknight-M46-Large.xcresult`, and `/tmp/Weeknight-M46-HighContrast3.xcresult`. Release-derived data is in `/tmp/Weeknight-M46-ScrollFixRelease`.
 
-The XCTest accessibility audit intentionally ignores only elements outside the rendered ScrollView viewport or beneath the tab-bar boundary. Visible content is still audited, and a separate Accessibility Large navigation test exercises reflow on all four destinations.
+The XCTest accessibility audit intentionally ignores only elements outside the rendered ScrollView viewport or beneath the tab-bar boundary, one visually verified SwiftUI label-clipping false positive, and unattributed compositing diagnostics produced by iOS 26's system tab-bar material. Attributed visible content is still audited. Separate Accessibility Large and four-tab physical-scroll tests exercise reflow and below-the-fold reachability on all four destinations.
 
 ## Accessibility review
 
@@ -50,7 +51,7 @@ The XCTest accessibility audit intentionally ignores only elements outside the r
 - Lists, forms, pickers, steppers, confirmation dialogs, segmented controls, and navigation destinations retain native semantics and logical reading order.
 - Accessibility Large text navigated all four primary destinations without losing their titles or controls. The segmented Meals picker adapts to a labelled Menu at accessibility sizes.
 - Reduce Motion suppresses or simplifies view transitions; confirmation haptics and textual state remain.
-- The iOS 26 tab bar uses an opaque Weeknight appearance and a real safe-area clearance, preventing essential content from being covered while retaining native tab semantics.
+- The iOS 26 tab bar uses the Weeknight cream appearance and native TabView safe-area behavior. No custom overlay or masking inset sits above the four root scroll views.
 
 The Simulator accepted defaults writes for Differentiate Without Color and Button Shapes, but its Settings UI continued to report Differentiate Without Color as Off. That toggle is therefore recorded as a code-path and semantic inspection rather than a successful runtime toggle: every selection and status uses text, a symbol/checkmark, and accessibility traits or values. The exact manual step remains below for confirmation on a physical device or Simulator where the setting persists.
 

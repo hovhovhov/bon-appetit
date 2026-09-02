@@ -86,7 +86,7 @@ Validation on September 1, 2026 passed the backend typecheck/build and 24 backen
 
 ## Recorded Milestone 4.6 validation
 
-Validation on September 2, 2026 passed 78 iOS tests (52 unit and 26 UI), 24 backend tests, backend typecheck/build, the narrow/standard/large iPhone matrix, Accessibility Large text, Reduce Motion, Increase Contrast, the preserved Debug-only legacy feed, and a clean Release build. Seven final screen captures and the non-color semantics review are recorded in [the Milestone 4.6 validation record](docs/MILESTONE_4_6_VALIDATION.md).
+Validation on September 2, 2026 passed 79 iOS tests (52 unit and 27 UI), 24 backend tests, backend typecheck/build, the narrow/standard/large iPhone matrix, Accessibility Large text, Reduce Motion, Increase Contrast, the preserved Debug-only legacy feed, a four-tab scroll regression, and a clean Release build. Seven final screen captures and the non-color semantics review are recorded in [the Milestone 4.6 validation record](docs/MILESTONE_4_6_VALIDATION.md).
 
 ## Safety and fallback boundary
 
