@@ -620,3 +620,39 @@ final class Milestone4JourneyTests: XCTestCase {
         add(attachment)
     }
 }
+
+final class Milestone46LegacyDiscoverBoundaryTests: XCTestCase {
+    func testLegacyFeedDebugLaunchStillUsesSharedDetailsAndPlanningActions() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--reset-fixture",
+            "--start-discover",
+            "--legacy-discover-feed",
+            "-AppleLanguages", "(en)",
+            "-AppleLocale", "en_US",
+        ]
+        app.launch()
+
+        let legacyFeed = app.descendants(matching: .any)
+            .matching(identifier: "legacy-discover-feed")
+            .firstMatch
+        XCTAssertTrue(legacyFeed.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Meals"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Discover"].exists)
+
+        let details = app.buttons["discover-details-carbonara"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+        details.tap()
+        XCTAssertTrue(app.buttons["details-add-to-week"].waitForExistence(timeout: 5))
+        app.buttons["recipe-details-back"].tap()
+
+        XCTAssertTrue(legacyFeed.waitForExistence(timeout: 5))
+        app.buttons["add-recipe-carbonara"].tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(identifier: "add-to-week-sheet")
+                .firstMatch
+                .waitForExistence(timeout: 5)
+        )
+    }
+}

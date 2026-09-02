@@ -1,6 +1,305 @@
 import SwiftUI
 
-struct DiscoverView: View {
+struct ForYouMealsView: View {
+    @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var query = ""
+    @State private var addRecipe: Recipe?
+    @State private var detailRecipeID: Recipe.ID?
+
+    private var results: [RankedRecipe] {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return store.rankedDiscoverRecipes }
+        return store.rankedDiscoverRecipes.filter { ranked in
+            let recipe = ranked.recipe
+            return recipe.title.localizedCaseInsensitiveContains(normalized)
+                || recipe.sourceName.localizedCaseInsensitiveContains(normalized)
+                || recipe.tags.contains(where: { $0.localizedCaseInsensitiveContains(normalized) })
+                || recipe.ingredients.contains(where: {
+                    $0.ingredient.displayName.localizedCaseInsensitiveContains(normalized)
+                })
+        }
+    }
+
+    var body: some View {
+        Group {
+            switch store.recipeMode {
+            case .loading:
+                loadingState
+            case .error:
+                statePanel(
+                    icon: "wifi.exclamationmark",
+                    title: "Recipes didn’t load",
+                    message: "Your saved recipes and weekly plan are still available on this iPhone.",
+                    action: "Try again"
+                ) { Task { await store.retryRecipes() } }
+            case .empty:
+                statePanel(
+                    icon: "fork.knife",
+                    title: "No recipes yet",
+                    message: "There is nothing in this recipe source right now.",
+                    action: "Back to Plans"
+                ) { navigation.showPlans() }
+            case .ready, .stale:
+                recommendations
+            }
+        }
+        .background(WeeknightTheme.background.ignoresSafeArea())
+        .sheet(item: $addRecipe) { recipe in
+            AddToWeekSheet(recipe: recipe, servings: store.preferences.householdSize)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(WeeknightTheme.Radius.sheet)
+        }
+        .navigationDestination(item: $detailRecipeID) { recipeID in
+            RecipeDetailsView(
+                recipeID: recipeID,
+                origin: .discover,
+                initialServings: store.preferences.householdSize
+            )
+        }
+        .task { await store.loadRecipesIfNeeded() }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("for-you-meals")
+    }
+
+    private var recommendations: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if showsBackendStatus {
+                    BackendStatusView(onDark: false)
+                        .padding(.bottom, 16)
+                }
+
+                searchField
+                    .padding(.bottom, 18)
+
+                if store.discoverRecipes.isEmpty {
+                    noRecommendationsState
+                        .frame(minHeight: 360)
+                } else if results.isEmpty {
+                    statePanel(
+                        icon: "magnifyingglass",
+                        title: "No meals found",
+                        message: "Try another recipe, ingredient, or tag.",
+                        action: "Clear search"
+                    ) { query = "" }
+                    .frame(minHeight: 360)
+                    .accessibilityIdentifier("for-you-no-search-results")
+                } else {
+                    Text("Recommended for your week")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                        .padding(.bottom, 4)
+                    Text("Every recommendation has passed your dietary, medical, and equipment rules.")
+                        .font(.subheadline)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 10)
+
+                    ForEach(results) { ranked in
+                        recommendationRow(ranked)
+                        Divider()
+                            .overlay(WeeknightTheme.hairline)
+                    }
+                }
+            }
+            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+            .padding(.bottom, WeeknightTheme.Spacing.xLarge)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(WeeknightTheme.secondaryText)
+            TextField("Search recommended meals", text: $query)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                .accessibilityIdentifier("for-you-search")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .frame(width: 44, height: 44)
+                }
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.leading, 16)
+        .frame(minHeight: 52)
+        .background(WeeknightTheme.surfaceElevated)
+        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+    }
+
+    private func recommendationRow(_ ranked: RankedRecipe) -> some View {
+        let recipe = ranked.recipe
+        let servings = store.preferences.householdSize
+        let cost = store.estimatedCost(for: recipe, servings: servings)
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
+                RecipeArtwork(style: recipe.artwork, compact: true)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 84 : 104, height: dynamicTypeSize.isAccessibilitySize ? 84 : 104)
+                    .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(recipe.title)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("discover-title-\(recipe.id)")
+                    Text(recipe.sourceName)
+                        .font(.subheadline)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                    Text("\(recipe.activeMinutes) min · serves \(servings) · \(cost.formatted())")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Photo of \(recipe.title). \(recipe.sourceName), \(recipe.activeMinutes) minutes, serves \(servings), estimated \(cost.formatted())")
+
+            Label(fitLabel(ranked, cost: cost), systemImage: fitSymbol(ranked, cost: cost))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(fitColor(ranked, cost: cost))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(explanation(for: ranked))
+                .font(.subheadline)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("discover-explanation-\(recipe.id)")
+
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) { actions(for: recipe) }
+                VStack(spacing: 10) { actions(for: recipe) }
+            }
+        }
+        .padding(.vertical, 18)
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func actions(for recipe: Recipe) -> some View {
+        Button("View recipe") { detailRecipeID = recipe.id }
+            .buttonStyle(.bordered)
+            .tint(WeeknightTheme.forest)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("discover-details-\(recipe.id)")
+
+        Button {
+            store.toggleSaved(recipe.id)
+        } label: {
+            Label(store.isSaved(recipe.id) ? "Saved" : "Save", systemImage: store.isSaved(recipe.id) ? "bookmark.fill" : "bookmark")
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .tint(WeeknightTheme.forest)
+        .accessibilityLabel(store.isSaved(recipe.id) ? "Unsave \(recipe.title)" : "Save \(recipe.title)")
+        .accessibilityValue(store.isSaved(recipe.id) ? "Saved" : "Not saved")
+        .accessibilityIdentifier("discover-save-\(recipe.id)")
+
+        Button("Add to Plan") { addRecipe = recipe }
+            .buttonStyle(.borderedProminent)
+            .tint(WeeknightTheme.forest)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("add-recipe-\(recipe.id)")
+    }
+
+    private func explanation(for ranked: RankedRecipe) -> String {
+        let messages = ranked.explanations + ranked.cautions
+        return messages.isEmpty ? ranked.recipe.rationale : messages.prefix(2).joined(separator: " ")
+    }
+
+    private func fitLabel(_ ranked: RankedRecipe, cost: Money) -> String {
+        if let caution = ranked.cautions.first { return caution }
+        if cost > store.remainingBudget {
+            return "Would exceed the current weekly budget by \((cost - store.remainingBudget).formatted())."
+        }
+        return "Fits the \(store.remainingBudget.formatted()) left in this week’s budget."
+    }
+
+    private func fitSymbol(_ ranked: RankedRecipe, cost: Money) -> String {
+        ranked.cautions.isEmpty && cost <= store.remainingBudget ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+    }
+
+    private func fitColor(_ ranked: RankedRecipe, cost: Money) -> Color {
+        ranked.cautions.isEmpty && cost <= store.remainingBudget ? WeeknightTheme.forest : WeeknightTheme.tomato
+    }
+
+    @ViewBuilder
+    private var noRecommendationsState: some View {
+        let scheduled = Set(store.plan.slots.compactMap(\.recipeID))
+        let unscheduled = store.recipes.filter { !scheduled.contains($0.id) }
+        if unscheduled.isEmpty {
+            statePanel(
+                icon: "checkmark.circle.fill",
+                title: "Every dinner is planned",
+                message: "Your active week already contains every available recipe.",
+                action: "See Plans"
+            ) { navigation.showPlans() }
+        } else {
+            statePanel(
+                icon: "slider.horizontal.3",
+                title: "No meals meet every hard rule",
+                message: "The remaining recipes conflict with your current eligibility settings. Medical and dietary rules were not weakened.",
+                action: "Review Preferences"
+            ) { navigation.showPreferences() }
+            .accessibilityIdentifier("discover-no-results")
+        }
+    }
+
+    private var loadingState: some View {
+        VStack(spacing: 14) {
+            ProgressView().tint(WeeknightTheme.forest)
+            Text(store.backendState == .local ? "Loading local recipes…" : "Loading validated recipes…")
+                .font(.headline)
+                .foregroundStyle(WeeknightTheme.primaryText)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Loading recipes")
+    }
+
+    private func statePanel(
+        icon: String,
+        title: String,
+        message: String,
+        action: String,
+        perform: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(WeeknightTheme.forest)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.title.weight(.bold))
+                .foregroundStyle(WeeknightTheme.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(message)
+                .font(.body)
+                .foregroundStyle(WeeknightTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action, action: perform)
+                .buttonStyle(PrimaryActionButtonStyle())
+        }
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private var showsBackendStatus: Bool {
+        if case .local = store.backendState { return false }
+        return true
+    }
+}
+
+struct LegacyDiscoverFeedView: View {
     @Environment(AppStore.self) private var store
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,6 +315,12 @@ struct DiscoverView: View {
                 if store.recipeMode == .ready || store.recipeMode == .stale,
                    !store.discoverRecipes.isEmpty {
                     VStack(spacing: 7) {
+                        Text("LEGACY DISCOVER · DEBUG")
+                            .font(.caption2.weight(.bold))
+                            .tracking(1.2)
+                            .foregroundStyle(WeeknightTheme.photoText)
+                            .accessibilityLabel("Legacy Discover feed")
+                            .accessibilityIdentifier("legacy-discover-feed")
                         progressHeader
                         if showsBackendStatus { BackendStatusView(onDark: true) }
                     }
@@ -42,7 +347,7 @@ struct DiscoverView: View {
             await store.loadRecipesIfNeeded()
             if visibleRecipeID == nil { visibleRecipeID = store.rankedDiscoverRecipes.first?.id }
         }
-        .accessibilityIdentifier("discover-screen")
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
