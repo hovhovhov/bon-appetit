@@ -24,7 +24,7 @@ export const testConfig = (overrides: Partial<BackendConfig> = {}): BackendConfi
 
 export const recommendationRequest: RecommendationRequest = {
   schemaVersion: 1,
-  catalogueVersion: "dev-2026-08-31.1",
+  catalogueVersion: "dev-2026-08-31.2",
   eligibleRecipeIDs: ["carbonara", "curry", "caesar", "chopped", "steak"],
   scheduledRecipeIDs: ["honeysoy", "chilli", "stirfry"],
   remainingBudgetMinorUnits: 5_000,
@@ -41,7 +41,7 @@ export const recommendationRequest: RecommendationRequest = {
 
 export const weekPlanRequest: WeekPlanRequest = {
   schemaVersion: 1,
-  catalogueVersion: "dev-2026-08-31.1",
+  catalogueVersion: "dev-2026-08-31.2",
   eligibleRecipeIDs: ["carbonara", "curry", "caesar", "chopped", "steak"],
   scheduledRecipeIDs: ["honeysoy", "chilli", "stirfry"],
   openDays: ["Thursday", "Friday"],

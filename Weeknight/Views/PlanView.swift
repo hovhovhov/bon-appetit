@@ -542,7 +542,7 @@ struct PlanView: View {
                     .foregroundStyle(WeeknightTheme.forest)
                     .frame(minHeight: 44, alignment: .leading)
                     .accessibilityIdentifier("add-meal-\(slot.day.rawValue)")
-                    .accessibilityHint("Opens For You recommendations")
+                    .accessibilityHint("Opens Explore meals")
             }
             Spacer(minLength: 0)
         }

@@ -10,7 +10,7 @@ enum AppTab: Hashable {
 }
 
 enum MealsSection: String, CaseIterable, Identifiable {
-    case forYou = "For You"
+    case forYou = "Explore"
     case saved = "Saved"
 
     var id: Self { self }

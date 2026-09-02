@@ -48,10 +48,54 @@ final class AppStoreTests: XCTestCase {
         XCTAssertEqual(store.recentlySavedRecipes.first?.id, "carbonara")
         XCTAssertEqual(store.savedRecipes(matching: "spaghetti", filter: .all).map(\.id), ["carbonara"])
         XCTAssertEqual(store.savedRecipes(matching: "five ingredients", filter: .all).map(\.id), ["carbonara"])
+        XCTAssertEqual(store.savedRecipes(matching: "Italian", filter: .recentlySaved).map(\.id), ["carbonara"])
 
         store.toggleSaved("carbonara")
         XCTAssertFalse(store.isSaved("carbonara"))
         XCTAssertTrue(store.savedRecipes(matching: "carbonara", filter: .all).isEmpty)
+    }
+
+    func testExploreSearchUsesStructuredCuisineIngredientsTagsAndStyles() {
+        let store = AppStore(arguments: [])
+
+        XCTAssertEqual(Set(store.exploreRecipes(matching: "Asian").map(\.id)), Set(["honeysoy", "stirfry"]))
+        XCTAssertEqual(Set(store.exploreRecipes(matching: "spaghetti").map(\.id)), Set(["carbonara"]))
+        XCTAssertEqual(Set(store.exploreRecipes(matching: "five ingredients").map(\.id)), Set(["carbonara"]))
+        XCTAssertEqual(Set(store.exploreRecipes(matching: "Protein packed").map(\.id)), Set(["honeysoy", "caesar", "steak"]))
+    }
+
+    func testExploreAndCuisineCountsNeverIncludeHardIneligibleRecipes() {
+        var snapshot = WeeknightFixture.canonicalSnapshot
+        snapshot.preferences.medicalAllergens = [.soy]
+        let store = AppStore(arguments: [], persistence: InMemoryAppStatePersistence(snapshot: snapshot))
+
+        XCTAssertTrue(store.exploreRecipes(matching: "Asian").isEmpty)
+        XCTAssertNil(store.cuisineSummaries.first(where: { $0.cuisine == .asian }))
+        XCTAssertFalse(store.eligibleMealsCatalogue.map(\.id).contains("honeysoy"))
+        XCTAssertFalse(store.eligibleMealsCatalogue.map(\.id).contains("stirfry"))
+    }
+
+    func testCuisineSummariesDeriveCountsAndLowestPricesFromEligibleCatalogue() throws {
+        let store = AppStore(arguments: [])
+        let asian = try XCTUnwrap(store.cuisineSummaries.first(where: { $0.cuisine == .asian }))
+        let italian = try XCTUnwrap(store.cuisineSummaries.first(where: { $0.cuisine == .italian }))
+
+        XCTAssertEqual(asian.mealCount, 2)
+        XCTAssertEqual(asian.lowestPrice, WeeknightFixture.money(1_020))
+        XCTAssertEqual(asian.representativeRecipeID, "stirfry")
+        XCTAssertEqual(italian.mealCount, 1)
+        XCTAssertEqual(italian.lowestPrice, WeeknightFixture.money(890))
+    }
+
+    func testCuisineSortAndCommittedStyleOrderingAreDeterministic() {
+        var snapshot = WeeknightFixture.canonicalSnapshot
+        snapshot.preferences.preferredMealStyles = [.fakeaway, .treatNight]
+        let store = AppStore(arguments: [], persistence: InMemoryAppStatePersistence(snapshot: snapshot))
+
+        XCTAssertEqual(store.cuisineRecipes(.asian, sort: .cheapest).map(\.id), ["stirfry", "honeysoy"])
+        XCTAssertEqual(store.cuisineRecipes(.asian, sort: .quickest).map(\.id), ["stirfry", "honeysoy"])
+        XCTAssertEqual(store.cuisineRecipes(.asian, sort: .title).map(\.id), ["stirfry", "honeysoy"])
+        XCTAssertEqual(Set(store.orderedMealStyles.prefix(2)), [.fakeaway, .treatNight])
     }
 
     func testRecipeNotePersistsAcrossStoreRelaunch() {

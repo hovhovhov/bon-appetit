@@ -52,7 +52,7 @@ enum PreferenceEditorKind: String, CaseIterable, Identifiable, Hashable {
         case .household: "Sets servings for planned dinners and scales the budget preview and shopping list."
         case .cookingDays: "Sets the nights that appear on your active week."
         case .budget: "Helps rank recipes and choose an autofill combination. It never changes medical eligibility."
-        case .cookingTime: "For You flags slower recipes; autofill uses this as a firm limit."
+        case .cookingTime: "Explore flags slower recipes; autofill uses this as a firm limit."
         case .dietary: "Recipes that do not meet every selected dietary restriction are excluded."
         case .allergens: "Recipes with a matching declared allergen are excluded before ranking."
         case .dislikes: "Recipes can still appear, but ingredients you dislike lower their ranking."

@@ -19,10 +19,32 @@ final class RemoteBackendTransportTests: XCTestCase {
         let response = try await client.loadCatalogue()
         let catalogue = try response.validatedDomainCatalogue()
 
-        XCTAssertEqual(catalogue.version, "dev-2026-08-31.1")
+        XCTAssertEqual(catalogue.version, "dev-2026-08-31.2")
         XCTAssertEqual(catalogue.recipes.map(\.id), WeeknightFixture.recipes.map(\.id))
         XCTAssertEqual(catalogue.recipes.first?.estimatedCost, WeeknightFixture.recipes.first?.estimatedCost)
         XCTAssertEqual(catalogue.recipes.first?.provenance.contentClearance, "development-only")
+        XCTAssertEqual(catalogue.recipes.first?.cuisine, .asian)
+    }
+
+    func testOlderCachedCatalogueWithoutCuisineMetadataStillDecodes() async throws {
+        let encoded = try JSONEncoder().encode(makeBackendCatalogueResponse())
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        var recipes = try XCTUnwrap(object["recipes"] as? [[String: Any]])
+        recipes = recipes.map { recipe in
+            var legacy = recipe
+            legacy.removeValue(forKey: "cuisine")
+            legacy["version"] = 1
+            return legacy
+        }
+        object["recipes"] = recipes
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        MockBackendURLProtocol.handler = { _ in (.success, legacyData) }
+
+        let response = try await makeURLSessionClient().loadCatalogue()
+        let catalogue = try response.validatedDomainCatalogue()
+
+        XCTAssertEqual(catalogue.recipes.count, WeeknightFixture.recipes.count)
+        XCTAssertTrue(catalogue.recipes.allSatisfy { $0.cuisine == nil })
     }
 
     func testGETTimeoutRetriesOnceThenSucceeds() async throws {
@@ -169,7 +191,7 @@ final class Milestone4StoreTests: XCTestCase {
     func testUnknownRemoteWeekSelectionCannotReachPlan() async throws {
         let invalidWeek = BackendWeekPlanResponse(
             schemaVersion: 1,
-            catalogueVersion: "dev-2026-08-31.1",
+            catalogueVersion: "dev-2026-08-31.2",
             status: "stub",
             outcome: "success",
             fallbackReason: nil,
@@ -303,7 +325,7 @@ private func awaitDelay(milliseconds: UInt64) throws {
 private func makeRecommendationRequest() -> BackendRecommendationRequest {
     BackendRecommendationRequest(
         schemaVersion: 1,
-        catalogueVersion: "dev-2026-08-31.1",
+        catalogueVersion: "dev-2026-08-31.2",
         eligibleRecipeIDs: ["carbonara", "curry"],
         scheduledRecipeIDs: [],
         remainingBudgetMinorUnits: 4_000,
@@ -322,7 +344,7 @@ private func makeRecommendationRequest() -> BackendRecommendationRequest {
 private func makeRecommendationResponse(status: String = "stub") -> BackendRecommendationResponse {
     BackendRecommendationResponse(
         schemaVersion: 1,
-        catalogueVersion: "dev-2026-08-31.1",
+        catalogueVersion: "dev-2026-08-31.2",
         status: status,
         fallbackReason: status == "fallback" ? "provider-unavailable" : nil,
         recommendations: ["carbonara", "curry", "caesar", "chopped", "steak"].map {
@@ -335,7 +357,7 @@ private func makeRecommendationResponse(status: String = "stub") -> BackendRecom
 private func makeWeekResponse() -> BackendWeekPlanResponse {
     BackendWeekPlanResponse(
         schemaVersion: 1,
-        catalogueVersion: "dev-2026-08-31.1",
+        catalogueVersion: "dev-2026-08-31.2",
         status: "stub",
         outcome: "success",
         fallbackReason: nil,
@@ -351,12 +373,12 @@ private func makeWeekResponse() -> BackendWeekPlanResponse {
 private func makeBackendCatalogueResponse() -> BackendCatalogueResponse {
     BackendCatalogueResponse(
         schemaVersion: 1,
-        catalogueVersion: "dev-2026-08-31.1",
+        catalogueVersion: "dev-2026-08-31.2",
         environment: "development",
         recipes: WeeknightFixture.recipes.map { recipe in
             BackendRecipeRecord(
                 id: recipe.id,
-                version: 1,
+                version: 2,
                 title: recipe.title,
                 source: BackendRecipeRecord.Source(
                     name: recipe.sourceName,
@@ -372,6 +394,7 @@ private func makeBackendCatalogueResponse() -> BackendCatalogueResponse {
                 ),
                 activeMinutes: recipe.activeMinutes,
                 defaultServings: recipe.servings,
+                cuisine: recipe.cuisine?.rawValue,
                 estimatedCost: BackendRecipeRecord.Cost(
                     minorUnits: recipe.estimatedCost.minorUnits,
                     currency: recipe.estimatedCost.currencyCode,

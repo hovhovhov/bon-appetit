@@ -1,8 +1,16 @@
 # Weeknight design handoff
 
-Status: historical design evidence with a current Milestone 4.6 addendum
+Status: historical design evidence with current Milestone 4.6 and 4.6.1 addenda
 Prepared: 2026-08-31  
-Implementation status: Milestones 1–4.6 implemented
+Implementation status: Milestones 1–4.6.1 implemented
+
+## Current Milestone 4.6.1 Meals design addendum
+
+The four approved Meals PNGs attached on September 2, 2026 are the primary visual and interaction references for Meals. They replace the Milestone 4.6 For You recommendation-report layout but do not reopen the approved Plans design.
+
+Meals uses a warm cream canvas, forest-green emphasis, compact spacing, subtle borders, moderate radii, minimal shadows, and a native Explore/Saved segmented control. Explore contains search, committed meal-style cards with an in-place seven-style expansion, and a food-forward two-column cuisine grid. Cuisine results use compact flexible rows, real recipe metadata, one Add action, and text for the scheduled day. Saved uses moderate thumbnails, source and meal facts, one honest fit/caution/planned line, Add or Replace, and an icon-plus-word Saved control.
+
+Exact screenshot counts and prices are illustrative; shipping values come from hard-eligible validated catalogue state. The development catalogue currently has four cuisines and fewer Asian recipes than the reference board, so the implementation preserves honest density rather than inventing catalogue records. At accessibility Dynamic Type sizes, two-column cards and compact rows may become single-column or taller. Native iOS navigation and tab-bar geometry may differ from the presentation frames.
 
 ## Current Milestone 4.6 design addendum
 

@@ -1,6 +1,6 @@
 # Weeknight
 
-Weeknight is a native SwiftUI iPhone application. Milestone 4.6 reorganizes the existing planning product into four accessible primary tabs—Plans, Meals, Preferences, and Settings—without changing its deterministic planning, safety, persistence, or backend boundaries. Meals now contains For You and Saved; the earlier vertical Discover feed remains available only in Debug/test builds.
+Weeknight is a native SwiftUI iPhone application. Milestone 4.6.1 refines Meals into the approved Explore and Saved browsing experience without changing Plans or the app's deterministic planning, safety, persistence, or backend boundaries. Explore now offers real preference-backed styles, eligible-catalogue search, and cuisine browsing; the earlier vertical Discover feed remains available only in Debug/test builds.
 
 The app remains fully usable on device. AI never determines allergens, dietary safety, canonical prices, ingredient quantities, budget arithmetic, or shopping totals.
 
@@ -88,6 +88,10 @@ Validation on September 1, 2026 passed the backend typecheck/build and 24 backen
 
 Validation on September 2, 2026 passed 79 iOS tests (52 unit and 27 UI), 24 backend tests, backend typecheck/build, the narrow/standard/large iPhone matrix, Accessibility Large text, Reduce Motion, Increase Contrast, the preserved Debug-only legacy feed, a four-tab scroll regression, and a clean Release build. Seven final screen captures and the non-color semantics review are recorded in [the Milestone 4.6 validation record](docs/MILESTONE_4_6_VALIDATION.md).
 
+## Recorded Milestone 4.6.1 validation
+
+Milestone 4.6.1 adds the approved Meals exploration refinement: Explore/Saved presentation, expandable real meal styles, eligible-only search, catalogue-backed cuisine cards, dense cuisine results with deterministic sorting, and the revised Saved rows. Final test counts, builds, accessibility checks, Simulator comparisons, and captures are recorded in [the Milestone 4.6.1 validation record](docs/MILESTONE_4_6_1_VALIDATION.md).
+
 ## Safety and fallback boundary
 
 The iPhone first computes the hard-eligible recipe-ID allow-list using medical-allergen, dietary, and appliance rules. The backend intersects those IDs with its validated catalogue before calling any provider. Provider results use strict schemas and undergo ID, uniqueness, required-day, and budget checks. The iPhone then repeats eligibility and plan validation before committing through the existing domain layer.
@@ -102,7 +106,9 @@ The on-device **Fill the rest for me** engine still evaluates valid combinations
 
 ## Local persistence
 
-Weeknight uses SwiftData for one versioned local application-state record. Its schema-version-2 payload contains the active week plan (including committed servings), checked shopping IDs, saved recipe timestamps, recipe notes, and committed preferences. Budget, completion, eligibility, Meals recommendation order, and shopping totals are recalculated from source state. The remote catalogue has a separate, schema-compatible cache in the app's Caches directory; it is never a replacement for SwiftData user state. Tab selection, Meals section selection, search, and legacy-presentation mode are presentation state and require no data migration.
+Weeknight uses SwiftData for one versioned local application-state record. Its schema-version-2 payload contains the active week plan (including committed servings), checked shopping IDs, saved recipe timestamps, recipe notes, and committed preferences. Budget, completion, eligibility, Meals browsing results, and shopping totals are recalculated from source state. The remote catalogue has a separate, schema-compatible cache in the app's Caches directory; it is never a replacement for SwiftData user state. Tab selection, Meals section selection, search, expanded styles, sort, and legacy-presentation mode are presentation state and require no data migration.
+
+The catalogue contract separately supports an optional validated `cuisine` value. Version-2 development fixtures provide it where provenance is known. The client accepts cached version-1 records that omit cuisine, never guesses cuisine from recipe titles, and only shows cuisine cards for eligible recipes with validated metadata.
 
 ## Reset the canonical fixture
 
@@ -116,12 +122,13 @@ The canonical fixture starts with one-person servings; Monday through Friday coo
 
 - `Weeknight/` — native SwiftUI app, domain, SwiftData persistence, local and remote repositories, design system, and views
 - `WeeknightTests/` — domain, store, persistence, and remote-repository tests
-- `WeeknightUITests/` — Milestone 1–4.6 Simulator journeys and accessibility audits
+- `WeeknightUITests/` — Milestone 1–4.6.1 Simulator journeys and accessibility audits
 - `backend/` — local TypeScript service, validated catalogue, provider adapters, and tests
 - `docs/` — authoritative implementation/design documents and architecture decisions
 - `design-reference/` — visual/exported references; never linked into the app target
 - `artifacts/milestone-4/screenshots/` — final Milestone 4 Simulator evidence
 - `artifacts/milestone-4-6/screenshots/` — final Milestone 4.6 primary-screen evidence
+- `artifacts/milestone-4-6-1/screenshots/` — final Milestone 4.6.1 Meals evidence
 
 ## Milestone 4 evidence
 

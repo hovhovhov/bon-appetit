@@ -114,6 +114,7 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
     let sourceName: String
     let activeMinutes: Int
     let servings: Int
+    let cuisine: Cuisine?
     let tags: [String]
     let rationale: String
     let ingredients: [RecipeIngredient]
@@ -133,6 +134,7 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         sourceName: String,
         activeMinutes: Int,
         servings: Int,
+        cuisine: Cuisine? = nil,
         tags: [String],
         rationale: String,
         ingredients: [RecipeIngredient],
@@ -151,6 +153,7 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
         self.sourceName = sourceName
         self.activeMinutes = activeMinutes
         self.servings = servings
+        self.cuisine = cuisine
         self.tags = tags
         self.rationale = rationale
         self.ingredients = ingredients
@@ -172,6 +175,24 @@ struct Recipe: Hashable, Codable, Sendable, Identifiable {
     func estimatedCost(for servings: Int) -> Money {
         ingredients.reduce(.zero()) { total, entry in
             total + entry.cost(for: servings, baseServings: self.servings)
+        }
+    }
+}
+
+enum Cuisine: String, CaseIterable, Codable, Sendable, Identifiable {
+    case asian = "Asian"
+    case italian = "Italian"
+    case mexican = "Mexican"
+    case indian = "Indian"
+
+    var id: String { rawValue }
+
+    var examples: String {
+        switch self {
+        case .asian: "Noodles · Stir-fry"
+        case .italian: "Pasta · Risotto"
+        case .mexican: "Tacos · Chilli"
+        case .indian: "Curry · Dal"
         }
     }
 }
@@ -388,6 +409,43 @@ enum MealStyle: String, CaseIterable, Codable, Sendable, Identifiable {
     case treatNight = "Treat night"
 
     var id: String { rawValue }
+
+    var browseLabel: String {
+        switch self {
+        case .speedy: "Speedy meals"
+        case .familyFavorite: "Family favourites"
+        case .proteinPacked: "Protein packed"
+        default: rawValue
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .speedy: "bolt.fill"
+        case .healthyComfort: "heart.text.square.fill"
+        case .familyFavorite: "person.2.fill"
+        case .fakeaway: "takeoutbag.and.cup.and.straw.fill"
+        case .meatFree: "leaf.fill"
+        case .proteinPacked: "figure.strengthtraining.traditional"
+        case .treatNight: "sparkles"
+        }
+    }
+}
+
+enum MealBrowseSort: String, CaseIterable, Hashable, Sendable, Identifiable {
+    case cheapest = "Cheapest first"
+    case quickest = "Quickest first"
+    case title = "Name"
+
+    var id: String { rawValue }
+}
+
+struct CuisineSummary: Hashable, Sendable, Identifiable {
+    var id: Cuisine { cuisine }
+    let cuisine: Cuisine
+    let mealCount: Int
+    let lowestPrice: Money
+    let representativeRecipeID: Recipe.ID
 }
 
 struct UserPreferences: Hashable, Codable, Sendable {

@@ -91,11 +91,13 @@ The script refuses to run without that approval flag and records only pass/fail,
 All routes are versioned under `/v1` and accept/return JSON.
 
 - `GET /v1/health` — status, API version, and provider mode
-- `GET /v1/catalog/recipes` — schema/versioned development catalogue with source, rights, image, cost provenance, canonical ingredients, instructions, classifications, and ranking metadata
+- `GET /v1/catalog/recipes` — schema/versioned development catalogue with source, rights, image, cost provenance, canonical ingredients, instructions, classifications, ranking metadata, and optional validated cuisine metadata
 - `POST /v1/recommendations` — orders eligible recipe IDs and supplies short explanations
 - `POST /v1/week-plans/generate` — assigns eligible IDs to specified open days
 
 Requests and fixtures pass strict Zod validation. Provider Structured Outputs contain IDs and explanations only. Unknown IDs, duplicate selections, missing days, and over-budget weeks are rejected. Central errors contain a safe code, message, and retryable flag.
+
+Milestone 4.6.1 development records use fixture record version 2 and catalogue version `dev-2026-08-31.2`. `cuisine` is optional so previously cached version-1 records remain readable. The allowed values are validated centrally, and the client does not infer missing cuisine from titles or free text.
 
 ## Data transmitted
 

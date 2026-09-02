@@ -1,9 +1,24 @@
 # Weeknight — Native iPhone Implementation Plan
 
-Status: Milestones 1–4.6 implemented; Milestone 4.6 is the current product direction
+Status: Milestones 1–4.6.1 implemented; Milestone 4.6.1 is the current Meals direction
 Platform: iPhone only  
 Implementation: native Swift and SwiftUI  
 Prepared: 2026-08-31
+
+## Current Milestone 4.6.1 Meals amendment
+
+The approved September 2, 2026 Meals exploration refinement supersedes the Milestone 4.6 **For You** presentation wherever they conflict. Plans is approved and unchanged.
+
+- Meals remains one primary tab with **Explore** and **Saved** sections.
+- Explore leads with eligible-catalogue search, committed meal styles, and cuisine browsing. The seven canonical styles expand and collapse in place, and every style opens a real filtered result set.
+- Cuisine cards and result screens use only validated optional catalogue cuisine metadata. Counts and lowest prices derive from the hard-eligible recipes; no title inference or screen-only mapping is allowed.
+- Search covers existing title, cuisine, ingredients, tags, and styles after deterministic eligibility filtering.
+- Cuisine/style results use deterministic price, time, or title ordering and reuse Recipe Details plus the existing add/replace planning flow.
+- Saved retains timestamps, recent-first ordering, search, empty/no-results states, notes, Recipe Details, and existing add/replace semantics while presenting explicit text-backed Saved and planned states.
+- The optional cuisine field is backward compatible with older cached catalogue records. Missing metadata removes only the affected cuisine browse entry and never weakens eligibility.
+- Medical, dietary, appliance, budget, persistence, backend-validation, and deterministic-fallback boundaries remain unchanged.
+
+Milestone 4.6.1 validation and screenshot evidence is recorded in `MILESTONE_4_6_1_VALIDATION.md` and `../artifacts/milestone-4-6-1/screenshots/`.
 
 ## Current Milestone 4.6 amendment
 
@@ -11,7 +26,7 @@ The approved September 2, 2026 information-architecture and accessibility refine
 
 - The persistent native `TabView` destinations are **Plans**, **Meals**, **Preferences**, and **Settings**.
 - Plans always shows the current week summary, shopping progress, and every configured cooking day. Its completed collage is secondary to the day list.
-- Meals contains **For You** and **Saved**. For You is a calm searchable recommendation list; Saved preserves timestamps, filters, search, notes, and planning actions.
+- Meals contains **For You** and **Saved** in this historical amendment. Milestone 4.6.1 renames and replaces that presentation with Explore and Saved browsing.
 - The previous full-screen Discover feed is excluded from Release navigation and retained behind a Debug/test launch boundary.
 - Preferences remains the only planning-settings destination and preserves draft, cancel, reconciliation, atomic commit, and safety behavior.
 - Settings contains honest personalization, accessibility, privacy/data, reset, and about information. Backend diagnostics are Debug-only.

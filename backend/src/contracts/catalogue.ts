@@ -13,6 +13,7 @@ export const MealStyleSchema = z.enum([
   "Protein-packed",
   "Treat night",
 ]);
+export const CuisineSchema = z.enum(["Asian", "Italian", "Mexican", "Indian"]);
 export const AisleSchema = z.enum(["Produce", "Meat & fish", "Chilled & dairy", "Pantry"]);
 
 export const CatalogueIngredientSchema = z
@@ -49,6 +50,7 @@ export const CatalogueRecipeSchema = z
       .strict(),
     activeMinutes: z.number().int().min(1).max(360),
     defaultServings: z.number().int().min(1).max(20),
+    cuisine: CuisineSchema.optional(),
     estimatedCost: z
       .object({
         minorUnits: z.number().int().nonnegative(),

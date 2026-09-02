@@ -273,6 +273,7 @@ struct BackendRecipeRecord: Codable, Hashable, Sendable {
     let image: Image
     let activeMinutes: Int
     let defaultServings: Int
+    let cuisine: String?
     let estimatedCost: Cost
     let tags: [String]
     let rationale: String
@@ -319,6 +320,13 @@ struct BackendRecipeRecord: Codable, Hashable, Sendable {
         let dietary = try set(from: dietaryClassifications, as: DietaryRestriction.self)
         let appliances = try set(from: requiredAppliances, as: KitchenAppliance.self)
         let styles = try set(from: mealStyles, as: MealStyle.self)
+        let cuisineValue: Cuisine?
+        if let cuisine {
+            guard let mappedCuisine = Cuisine(rawValue: cuisine) else { throw BackendClientError.invalidResponse }
+            cuisineValue = mappedCuisine
+        } else {
+            cuisineValue = nil
+        }
         let sourceURL: URL?
         if let rawURL = source.url {
             guard let parsed = URL(string: rawURL), parsed.scheme == "https" else { throw BackendClientError.invalidResponse }
@@ -333,6 +341,7 @@ struct BackendRecipeRecord: Codable, Hashable, Sendable {
             sourceName: source.name,
             activeMinutes: activeMinutes,
             servings: defaultServings,
+            cuisine: cuisineValue,
             tags: tags,
             rationale: rationale,
             ingredients: mappedIngredients,

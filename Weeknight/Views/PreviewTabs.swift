@@ -30,6 +30,7 @@ struct MealsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .frame(minHeight: 44)
                     .accessibilityIdentifier("meals-section-picker")
                 }
             }
@@ -65,7 +66,6 @@ struct SavedView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var query: String
-    @State private var filter: SavedFilter = .all
     @State private var addRecipe: Recipe?
     @State private var swapDay: Weekday?
     @State private var selectedRecipeID: Recipe.ID?
@@ -74,7 +74,7 @@ struct SavedView: View {
         _query = State(initialValue: arguments.contains("--saved-no-results") ? "No matching supper" : "")
     }
 
-    private var results: [Recipe] { store.savedRecipes(matching: query, filter: filter) }
+    private var results: [Recipe] { store.savedRecipes(matching: query, filter: .recentlySaved) }
 
     var body: some View {
         ZStack {
@@ -82,9 +82,9 @@ struct SavedView: View {
             case .loading:
                 loadingState
             case .error:
-                statePanel(
+                MealsStatePanel(
                     icon: "exclamationmark.arrow.triangle.2.circlepath",
-                    title: "Saved recipes didn’t load",
+                    title: "Saved meals didn’t load",
                     message: "Your local library is still on this iPhone.",
                     action: "Try again"
                 ) { Task { await store.retrySaved() } }
@@ -123,16 +123,25 @@ struct SavedView: View {
     private var library: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                searchField
-                    .padding(.bottom, 14)
-                filterPicker
-                    .padding(.bottom, 10)
+                MealsSearchField(
+                    query: $query,
+                    prompt: "Search saved meals…",
+                    identifier: "saved-search",
+                    accessibilityLabel: "Search saved meals by title, source, cuisine, ingredient, tag, or style"
+                )
+                .padding(.bottom, 16)
 
-                Text("\(store.savedCount) saved \(store.savedCount == 1 ? "recipe" : "recipes")")
-                    .font(.subheadline)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                    .padding(.bottom, 2)
-                    .accessibilityIdentifier("saved-count")
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("\(store.savedCount) saved \(store.savedCount == 1 ? "meal" : "meals")")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .accessibilityIdentifier("saved-count")
+                    Spacer(minLength: 8)
+                    Text("Recently added")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.forest)
+                }
+                .padding(.bottom, 8)
 
                 if store.savedCount == 0 {
                     emptyState.frame(minHeight: 420)
@@ -152,85 +161,43 @@ struct SavedView: View {
         .scrollIndicators(.hidden)
     }
 
-    private var searchField: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(WeeknightTheme.secondaryText)
-            TextField("Search", text: $query)
-                .textInputAutocapitalization(.never)
-                .submitLabel(.search)
-                .accessibilityIdentifier("saved-search")
-                .accessibilityLabel("Search saved recipes, tags, or ingredients")
-            if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
-                }
-                .foregroundStyle(WeeknightTheme.secondaryText)
-                .accessibilityLabel("Clear search")
-                .accessibilityIdentifier("clear-saved-search")
-            }
-        }
-        .padding(.leading, 16)
-        .frame(minHeight: 52)
-        .background(WeeknightTheme.surfaceElevated)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-    }
-
-    @ViewBuilder
-    private var filterPicker: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            Picker("Saved recipe order", selection: $filter) {
-                ForEach(SavedFilter.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("saved-filter-picker")
-        } else {
-            Picker("Saved recipe order", selection: $filter) {
-                ForEach(SavedFilter.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("saved-filter-picker")
-        }
-    }
-
     private func savedRow(_ recipe: Recipe) -> some View {
         let servings = store.scheduledSlot(for: recipe.id)?.servings ?? store.preferences.householdSize
         let scheduledSlot = store.scheduledSlot(for: recipe.id)
-        let savedDate = store.savedAt(recipe.id)
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
-                RecipeArtwork(style: recipe.artwork, compact: true)
-                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 76 : 92, height: dynamicTypeSize.isAccessibilitySize ? 76 : 92)
-                    .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(recipe.title)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(recipe.sourceName) · \(recipe.activeMinutes) min")
-                        .font(.subheadline)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Serves \(servings) · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                    if let savedDate {
-                        Text("Saved \(savedDate.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.caption)
+            Button { selectedRecipeID = recipe.id } label: {
+                HStack(alignment: .top, spacing: 14) {
+                    RecipeArtwork(style: recipe.artwork, compact: true)
+                        .frame(
+                            width: dynamicTypeSize.isAccessibilitySize ? 84 : 76,
+                            height: dynamicTypeSize.isAccessibilitySize ? 84 : 76
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.title)
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(recipe.sourceName)
+                            .font(.subheadline)
                             .foregroundStyle(WeeknightTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(recipe.activeMinutes) min · \(servings) \(servings == 1 ? "serving" : "servings") · \(store.estimatedCost(for: recipe, servings: servings).formatted())")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Photo of \(recipe.title). \(recipe.sourceName), \(recipe.activeMinutes) minutes, serves \(servings), estimated \(store.estimatedCost(for: recipe, servings: servings).formatted())")
-            .accessibilityIdentifier("saved-recipe-\(recipe.id)")
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(recipe.title), \(recipe.sourceName), \(recipe.activeMinutes) minutes, \(servings) servings, estimated \(store.estimatedCost(for: recipe, servings: servings).formatted())")
+            .accessibilityHint("Opens Recipe Details")
+            .accessibilityIdentifier("saved-details-\(recipe.id)")
+
+            savedStatus(recipe, scheduledSlot: scheduledSlot)
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
@@ -243,30 +210,75 @@ struct SavedView: View {
         }
         .padding(.vertical, 18)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("saved-recipe-\(recipe.id)")
+    }
+
+    private func savedStatus(_ recipe: Recipe, scheduledSlot: MealSlot?) -> some View {
+        let status = savedStatusContent(recipe, scheduledSlot: scheduledSlot)
+        return Label(status.text, systemImage: status.symbol)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(status.color)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel(status.text)
+            .accessibilityIdentifier("saved-status-\(recipe.id)")
+    }
+
+    private func savedStatusContent(_ recipe: Recipe, scheduledSlot: MealSlot?) -> (text: String, symbol: String, color: Color) {
+        if let scheduledSlot {
+            return ("Already planned for \(scheduledSlot.day.rawValue)", "exclamationmark.triangle.fill", WeeknightTheme.citrus)
+        }
+        let eligibility = store.eligibility(for: recipe)
+        if let reason = eligibility.hardReasons.first {
+            return (reason.message, "exclamationmark.triangle.fill", WeeknightTheme.tomato)
+        }
+        if eligibility.exceedsPreferredCookingTime {
+            return ("Longer than your \(store.preferences.maximumCookingMinutes)-minute preference", "clock.badge.exclamationmark", WeeknightTheme.citrus)
+        }
+        if store.estimatedCost(for: recipe, servings: store.preferences.householdSize) > store.remainingBudget {
+            return ("Would exceed this week’s remaining budget", "exclamationmark.triangle.fill", WeeknightTheme.citrus)
+        }
+        return ("Fits your budget and time", "checkmark", WeeknightTheme.forest)
     }
 
     @ViewBuilder
     private func savedActions(_ recipe: Recipe, scheduledSlot: MealSlot?) -> some View {
-        Button("View recipe") { selectedRecipeID = recipe.id }
-            .buttonStyle(.bordered)
-            .tint(WeeknightTheme.forest)
-            .frame(minHeight: 44)
-            .accessibilityIdentifier("saved-details-\(recipe.id)")
-
-        Button(scheduledSlot == nil ? "Add to Plan" : "Replace in Plans") {
+        Button {
             if let scheduledSlot { swapDay = scheduledSlot.day } else { addRecipe = recipe }
+        } label: {
+            Label(
+                scheduledSlot.map { "Replace \($0.day.rawValue)" } ?? "Add to Plan",
+                systemImage: scheduledSlot == nil ? "plus" : "arrow.triangle.2.circlepath"
+            )
+            .font(.headline.weight(.bold))
+            .frame(maxWidth: .infinity, minHeight: 52)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(WeeknightTheme.forest)
-        .frame(minHeight: 44)
+        .buttonStyle(.plain)
+        .foregroundStyle(WeeknightTheme.background)
+        .padding(.horizontal, 12)
+        .background(WeeknightTheme.forest)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .disabled(scheduledSlot == nil && !store.eligibility(for: recipe).isEligible)
+        .accessibilityLabel(scheduledSlot.map { "Replace \(recipe.title) planned for \($0.day.rawValue)" } ?? "Add \(recipe.title) to plan")
         .accessibilityIdentifier("saved-plan-action-\(recipe.id)")
 
-        Button("Unsave", role: .destructive) { store.toggleSaved(recipe.id) }
-            .buttonStyle(.bordered)
-            .frame(minHeight: 44)
-            .accessibilityLabel("Unsave \(recipe.title)")
-            .accessibilityIdentifier("saved-unsave-\(recipe.id)")
+        Button { store.toggleSaved(recipe.id) } label: {
+            Label("Saved", systemImage: "bookmark.fill")
+                .font(.headline.weight(.bold))
+                .frame(maxWidth: .infinity, minHeight: 52)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(WeeknightTheme.forest)
+        .padding(.horizontal, 12)
+        .background(WeeknightTheme.wash)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(WeeknightTheme.forest.opacity(0.24), lineWidth: 1)
+        }
+        .accessibilityLabel("Unsave \(recipe.title)")
+        .accessibilityValue("Saved")
+        .accessibilityAddTraits(.isSelected)
+        .accessibilityIdentifier("saved-unsave-\(recipe.id)")
     }
 
     private var loadingState: some View {
@@ -278,47 +290,23 @@ struct SavedView: View {
     }
 
     private var emptyState: some View {
-        statePanel(
+        MealsStatePanel(
             icon: "bookmark",
             title: "Nothing saved yet",
-            message: "Save a dinner from For You and it will wait here for the right night.",
-            action: "Find dinners"
+            message: "Save a meal from Explore and it will wait here for the right night.",
+            action: "Find dinners",
+            identifier: "saved-empty-state"
         ) { navigation.showMeals() }
-        .accessibilityIdentifier("saved-empty-state")
     }
 
     private var noResultsState: some View {
-        statePanel(
+        MealsStatePanel(
             icon: "magnifyingglass",
-            title: "No saved recipes found",
-            message: "Try another title, source, tag or ingredient.",
-            action: "Clear search"
+            title: "No saved meals found",
+            message: "Try another title, source, cuisine, tag, style, or ingredient.",
+            action: "Clear search",
+            identifier: "saved-no-results-state"
         ) { query = "" }
-        .accessibilityIdentifier("saved-no-results-state")
-    }
-
-    private func statePanel(
-        icon: String,
-        title: String,
-        message: String,
-        action: String,
-        perform: @escaping () -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 38, weight: .semibold))
-                .foregroundStyle(WeeknightTheme.forest)
-            Text(title)
-                .font(.largeTitle.weight(.black))
-                .foregroundStyle(WeeknightTheme.primaryText)
-            Text(message)
-                .font(.body)
-                .foregroundStyle(WeeknightTheme.secondaryText)
-            Button(action, action: perform)
-                .buttonStyle(PrimaryActionButtonStyle())
-        }
-        .padding(.vertical, 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 

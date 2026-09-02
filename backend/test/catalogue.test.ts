@@ -9,6 +9,11 @@ describe("validated development catalogue", () => {
     expect(catalogue.recipes).toHaveLength(8);
     expect(catalogue.recipes.every((recipe) => recipe.source.clearance === "development-only")).toBe(true);
     expect(catalogue.recipes.every((recipe) => recipe.image.rightsStatus === "weeknight-owned-placeholder")).toBe(true);
+    expect(catalogue.recipes.every((recipe) => recipe.version === 2)).toBe(true);
+    expect(catalogue.recipes.filter((recipe) => recipe.cuisine === "Asian").map((recipe) => recipe.id)).toEqual([
+      "honeysoy",
+      "stirfry",
+    ]);
   });
 
   it("rejects a cost that does not equal canonical ingredient costs", async () => {
@@ -32,5 +37,14 @@ describe("validated development catalogue", () => {
     const parsed = CatalogueSchema.parse(adversarial);
     expect(parsed.recipes.at(-1)?.title).toContain("IGNORE PRIOR RULES");
     expect(parsed.recipes.at(-1)?.id).toBe("adversarial-data-only");
+  });
+
+  it("keeps older cached records compatible when optional cuisine metadata is absent", () => {
+    const legacyCompatible = structuredClone(developmentCatalogue);
+    for (const recipe of legacyCompatible.recipes) {
+      delete recipe.cuisine;
+      recipe.version = 1;
+    }
+    expect(CatalogueSchema.parse(legacyCompatible).recipes.every((recipe) => recipe.cuisine === undefined)).toBe(true);
   });
 });

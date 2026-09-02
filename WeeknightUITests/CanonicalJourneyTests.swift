@@ -19,6 +19,8 @@ final class CanonicalJourneyTests: XCTestCase {
         capture("01-initial-plan")
 
         app.tabBars.buttons["Meals"].tap()
+        XCTAssertTrue(element("cuisine-grid").waitForExistence(timeout: 5))
+        searchExplore("Proper Carbonara")
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         capture("02-discover-carbonara")
         app.buttons["add-recipe-carbonara"].tap()
@@ -36,6 +38,7 @@ final class CanonicalJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 31"))
 
         app.tabBars.buttons["Meals"].tap()
+        searchExplore("Weeknight Chicken Curry")
         XCTAssertTrue(app.staticTexts["discover-title-curry"].waitForExistence(timeout: 5))
         app.buttons["add-recipe-curry"].tap()
         tapDay("Friday")
@@ -88,6 +91,16 @@ final class CanonicalJourneyTests: XCTestCase {
         button.tap()
     }
 
+    private func searchExplore(_ text: String) {
+        let search = app.textFields["for-you-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let clear = app.buttons["Clear search"]
+        if clear.exists { clear.tap() }
+        search.tap()
+        search.typeText(text)
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+    }
+
     private func capture(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
@@ -129,6 +142,7 @@ final class Milestone2JourneyTests: XCTestCase {
 
     func testRecipeDetailsDraftCancelThenAddWithSelectedServings() {
         app.tabBars.buttons["Meals"].tap()
+        searchExplore("Proper Carbonara")
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
@@ -199,6 +213,7 @@ final class Milestone2JourneyTests: XCTestCase {
         XCTAssertTrue(element("plan-screen").waitForExistence(timeout: 5))
 
         app.tabBars.buttons["Meals"].tap()
+        searchExplore("Proper Carbonara")
         XCTAssertTrue(app.buttons["discover-details-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
@@ -217,16 +232,18 @@ final class Milestone2JourneyTests: XCTestCase {
 
     func testSaveAndUnsaveAgreeAcrossDiscoverDetailsAndSaved() {
         app.tabBars.buttons["Meals"].tap()
-        let discoverSave = app.buttons["discover-save-carbonara"]
-        XCTAssertTrue(discoverSave.waitForExistence(timeout: 5))
-        XCTAssertEqual(discoverSave.value as? String, "Not saved")
-        discoverSave.tap()
-        XCTAssertEqual(discoverSave.value as? String, "Saved")
+        searchExplore("Proper Carbonara")
+        app.buttons["discover-details-carbonara"].tap()
+        let detailsSave = app.buttons["details-save-carbonara"]
+        XCTAssertTrue(detailsSave.waitForExistence(timeout: 5))
+        XCTAssertEqual(detailsSave.value as? String, "Not saved")
+        detailsSave.tap()
+        XCTAssertEqual(detailsSave.value as? String, "Saved")
+        app.buttons["recipe-details-back"].tap()
 
         selectSavedMeals()
         XCTAssertTrue(element("saved-recipe-carbonara").waitForExistence(timeout: 5))
         app.buttons["saved-details-carbonara"].tap()
-        let detailsSave = app.buttons["details-save-carbonara"]
         XCTAssertTrue(detailsSave.waitForExistence(timeout: 5))
         XCTAssertEqual(detailsSave.value as? String, "Saved")
         detailsSave.tap()
@@ -234,9 +251,11 @@ final class Milestone2JourneyTests: XCTestCase {
         app.buttons["recipe-details-back"].tap()
         XCTAssertFalse(element("saved-recipe-carbonara").exists)
 
-        selectForYouMeals()
-        XCTAssertTrue(discoverSave.waitForExistence(timeout: 5))
-        XCTAssertEqual(discoverSave.value as? String, "Not saved")
+        selectExploreMeals()
+        searchExplore("Proper Carbonara")
+        app.buttons["discover-details-carbonara"].tap()
+        XCTAssertTrue(detailsSave.waitForExistence(timeout: 5))
+        XCTAssertEqual(detailsSave.value as? String, "Not saved")
     }
 
     func testSwapReusesPlanMutationAndDerivedTotals() {
@@ -284,6 +303,7 @@ final class Milestone2JourneyTests: XCTestCase {
 
     private func addTwoServingCarbonaraToThursday() {
         app.tabBars.buttons["Meals"].tap()
+        searchExplore("Proper Carbonara")
         XCTAssertTrue(app.buttons["discover-details-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
@@ -349,12 +369,22 @@ final class Milestone2JourneyTests: XCTestCase {
         XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
     }
 
-    private func selectForYouMeals() {
+    private func selectExploreMeals() {
         app.tabBars.buttons["Meals"].tap()
         let picker = app.segmentedControls.firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
-        picker.buttons["For You"].tap()
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        picker.buttons["Explore"].tap()
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
+    }
+
+    private func searchExplore(_ text: String) {
+        let search = app.textFields["for-you-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        let clear = app.buttons["Clear search"]
+        if clear.exists { clear.tap() }
+        search.tap()
+        search.typeText(text)
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
     }
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -462,21 +492,24 @@ final class Milestone3JourneyTests: XCTestCase {
         XCTAssertTrue(element("preferences-summary").label.contains("4 dinners"))
     }
 
-    func testPersonalizedDiscoverExplanationAndHardNoResultsRoute() {
+    func testCommittedStylePreferenceAndHardNoResultsRoute() {
         launch(["--reset-fixture", "--m3-personalized", "--start-discover"])
-        let explanation = element("discover-explanation-carbonara")
-        XCTAssertTrue(explanation.waitForExistence(timeout: 5))
-        XCTAssertTrue(explanation.label.localizedCaseInsensitiveContains("speedy meal style"))
+        let speedyStyle = element("style-Speedy")
+        XCTAssertTrue(speedyStyle.waitForExistence(timeout: 5))
+        XCTAssertEqual(speedyStyle.value as? String, "Preferred style")
+        XCTAssertTrue(speedyStyle.isSelected)
         capture("14-personalized-discover")
 
         launch(["--reset-fixture", "--m3-no-results", "--start-discover"])
-        XCTAssertTrue(app.staticTexts["No meals meet every hard rule"].waitForExistence(timeout: 5))
+        let hardNoResults = element("explore-no-eligible-results")
+        XCTAssertTrue(hardNoResults.waitForExistence(timeout: 5))
+        XCTAssertEqual(hardNoResults.label, "No meals meet every hard rule")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Medical and dietary rules were not weakened")).firstMatch.exists)
         app.buttons["Review Preferences"].tap()
         XCTAssertTrue(element("preferences-screen").waitForExistence(timeout: 5))
     }
 
-    func testDislikeDeprioritizesWithoutRemovingOrMedicalizingRecipe() {
+    func testDislikeDoesNotRemoveOrMedicalizeExploreRecipe() {
         launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "dislikes"])
         XCTAssertTrue(element("preference-editor-dislikes").waitForExistence(timeout: 4))
         app.buttons["dislike-pancetta"].tap()
@@ -484,16 +517,14 @@ final class Milestone3JourneyTests: XCTestCase {
         XCTAssertTrue(element("preference-editor-dislikes").waitForNonExistence(timeout: 5))
 
         app.tabBars.buttons["Meals"].tap()
-        let firstRecipeTitle = app.staticTexts
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-"))
-            .firstMatch
-        XCTAssertTrue(firstRecipeTitle.waitForExistence(timeout: 5))
-        XCTAssertNotEqual(firstRecipeTitle.identifier, "discover-title-carbonara")
-
-        let carbonaraExplanation = element("discover-explanation-carbonara")
-        scrollTo(carbonaraExplanation)
-        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("marked as disliked"))
-        XCTAssertFalse(carbonaraExplanation.label.localizedCaseInsensitiveContains("allergen"))
+        let search = app.textFields["for-you-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Proper Carbonara")
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+        let carbonara = element("discover-details-carbonara")
+        XCTAssertTrue(carbonara.waitForExistence(timeout: 5))
+        XCTAssertFalse(carbonara.label.localizedCaseInsensitiveContains("allergen"))
     }
 
     func testAutofillSuccessAndUnableStates() {
@@ -582,8 +613,8 @@ final class Milestone4JourneyTests: XCTestCase {
             ["--reset-fixture", "--backend-enabled", "--backend-ignore-cache", "--m3-personalized", "--start-discover"],
             baseURL: "http://127.0.0.1:8787"
         )
-        XCTAssertTrue(app.staticTexts["Local backend · Stub personalization"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-")).firstMatch.exists)
+        XCTAssertTrue(element("cuisine-grid").waitForExistence(timeout: 8))
+        XCTAssertFalse(app.staticTexts["Local backend · Stub personalization"].exists)
         capture("18-discover-backend-catalogue")
 
         let search = app.textFields["for-you-search"]
@@ -593,11 +624,10 @@ final class Milestone4JourneyTests: XCTestCase {
         if app.keyboards.buttons["Search"].exists {
             app.keyboards.buttons["Search"].tap()
         }
-        let carbonaraExplanation = element("discover-explanation-carbonara")
-        scrollTo(carbonaraExplanation)
-        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("backend match"))
-        XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("pork"))
-        capture("19-backend-personalized-explanations")
+        let carbonara = element("discover-details-carbonara")
+        XCTAssertTrue(carbonara.waitForExistence(timeout: 5))
+        XCTAssertTrue(carbonara.label.localizedCaseInsensitiveContains("Proper Carbonara"))
+        capture("19-backend-validated-search")
 
         app.tabBars.buttons["Plans"].tap()
         XCTAssertTrue(app.buttons["autofill-plan"].waitForExistence(timeout: 5))
@@ -615,7 +645,7 @@ final class Milestone4JourneyTests: XCTestCase {
         )
         XCTAssertTrue(app.staticTexts["Local fallback active"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "failed validation")).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
+        XCTAssertTrue(element("cuisine-grid").exists)
         capture("21-honest-local-fallback")
     }
 
@@ -626,7 +656,7 @@ final class Milestone4JourneyTests: XCTestCase {
         )
         XCTAssertTrue(app.staticTexts["Offline · On-device mode"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["backend-retry"].exists)
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
+        XCTAssertTrue(element("cuisine-grid").exists)
         capture("22-backend-unavailable-recovery")
     }
 
@@ -683,9 +713,11 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
         XCTAssertFalse(app.tabBars.buttons["Saved"].exists)
 
         app.tabBars.buttons["Meals"].tap()
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("cuisine-grid").exists)
         let sectionControl = app.segmentedControls.firstMatch
         XCTAssertTrue(sectionControl.exists)
+        XCTAssertTrue(sectionControl.buttons["Explore"].isSelected)
         sectionControl.buttons["Saved"].tap()
         XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
         XCTAssertTrue(element("saved-recipe-curry").exists)
@@ -695,8 +727,8 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
         assertCanReveal(element("empty-meal-Friday"), screen: "Plans")
 
         app.tabBars.buttons["Meals"].tap()
-        XCTAssertTrue(element("discover-title-carbonara").waitForExistence(timeout: 5))
-        assertCanReveal(element("discover-title-steak"), screen: "Meals")
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
+        assertCanReveal(element("cuisine-Indian"), screen: "Meals")
 
         app.tabBars.buttons["Preferences"].tap()
         XCTAssertTrue(element("preferences-title").waitForExistence(timeout: 5))
@@ -751,7 +783,7 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["plan-headline"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Meals"].tap()
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
         app.tabBars.buttons["Preferences"].tap()
         XCTAssertTrue(app.staticTexts["preferences-title"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Settings"].tap()
@@ -780,7 +812,7 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
         try auditCurrentScreen(for: auditTypes)
 
         app.tabBars.buttons["Meals"].tap()
-        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
         try auditCurrentScreen(for: auditTypes)
 
         app.tabBars.buttons["Preferences"].tap()
@@ -808,10 +840,15 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
             let extendsBehindTabBar = !isPrimaryTab && element.frame.maxY > tabTop - 44
             let isVerifiedPlanStatusFalsePositive = issue.auditType == .textClipped
                 && element.identifier.hasPrefix("plan-fit-")
+            let isSingleLineSearchPromptFalsePositive = issue.auditType == .textClipped
+                && element.elementType == .textField
+                && ["for-you-search", "saved-search", "browse-search"].contains(element.identifier)
             let isOutsideRenderedViewport = !element.frame.intersects(self.app.frame)
                 || !element.isHittable
                 || extendsBehindTabBar
-            return isOutsideRenderedViewport || isVerifiedPlanStatusFalsePositive
+            return isOutsideRenderedViewport
+                || isVerifiedPlanStatusFalsePositive
+                || isSingleLineSearchPromptFalsePositive
         }
     }
 
@@ -827,6 +864,146 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
         }
 
         XCTFail("\(screen) could not scroll its below-the-fold content above the tab bar")
+    }
+
+    private func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+final class Milestone461MealsRefinementTests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        launch(["--reset-fixture", "--start-discover"])
+    }
+
+    func testExploreStylesExpandBrowseAndCollapse() {
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
+        XCTAssertEqual(element("styles-toggle").value as? String, "Collapsed")
+        XCTAssertTrue(element("style-Speedy").exists)
+        XCTAssertFalse(element("style-Treat night").exists)
+
+        element("styles-toggle").tap()
+        XCTAssertEqual(element("styles-toggle").value as? String, "Expanded")
+        XCTAssertTrue(element("style-Treat night").exists)
+        capture("24-meals-explore-expanded")
+
+        let speedy = element("style-Speedy")
+        scrollTo(speedy)
+        speedy.tap()
+        XCTAssertTrue(app.navigationBars["Speedy meals"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("browse-result-count").label.contains("meal"))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertEqual(element("styles-toggle").value as? String, "Expanded")
+        element("styles-toggle").tap()
+        XCTAssertEqual(element("styles-toggle").value as? String, "Collapsed")
+    }
+
+    func testCuisineNavigationSearchSortPlannedLabelAndAddAction() {
+        let asian = element("cuisine-Asian")
+        XCTAssertTrue(asian.waitForExistence(timeout: 5))
+        XCTAssertTrue(asian.label.contains("2 meals"))
+        XCTAssertTrue(asian.label.contains("$10.20"))
+        asian.tap()
+
+        XCTAssertTrue(app.navigationBars["Asian"].waitForExistence(timeout: 5))
+        XCTAssertEqual(element("browse-result-count").label, "2 meals inside your rules")
+        XCTAssertEqual(element("browse-sort").label, "Sort meals, Cheapest first")
+        XCTAssertTrue(element("planned-recipe-honeysoy").label.contains("Monday"))
+
+        let add = app.buttons["add-recipe-stirfry"]
+        XCTAssertTrue(add.exists)
+        XCTAssertEqual(add.label, "Add Ginger Rice Noodle Stir-Fry to plan.")
+        capture("25-meals-cuisine-asian")
+
+        let search = app.textFields["browse-search"]
+        search.tap()
+        search.typeText("Honey Soy")
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+        XCTAssertEqual(element("browse-result-count").label, "1 of 2 meals")
+        XCTAssertTrue(element("discover-title-honeysoy").exists)
+        XCTAssertFalse(element("discover-title-stirfry").exists)
+
+        app.buttons["Clear search"].tap()
+        element("browse-sort").tap()
+        XCTAssertTrue(app.buttons["Name"].waitForExistence(timeout: 3))
+        app.buttons["Name"].tap()
+        XCTAssertEqual(element("browse-sort").label, "Sort meals, Name")
+
+        app.buttons["add-recipe-stirfry"].tap()
+        XCTAssertTrue(element("add-to-week-sheet").waitForExistence(timeout: 5))
+    }
+
+    func testSavedPresentationOrderingUnsaveNoResultsAndEmptyState() {
+        let exploreSearch = app.textFields["for-you-search"]
+        XCTAssertTrue(exploreSearch.waitForExistence(timeout: 5))
+        exploreSearch.tap()
+        exploreSearch.typeText("Honey Soy")
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+        app.buttons["discover-details-honeysoy"].tap()
+        XCTAssertTrue(app.buttons["details-save-honeysoy"].waitForExistence(timeout: 5))
+        app.buttons["details-save-honeysoy"].tap()
+        app.buttons["recipe-details-back"].tap()
+
+        app.segmentedControls.firstMatch.buttons["Saved"].tap()
+        XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("saved-recipe-honeysoy").exists)
+        XCTAssertTrue(element("saved-recipe-curry").exists)
+        XCTAssertTrue(element("saved-recipe-caesar").exists)
+        XCTAssertLessThan(element("saved-recipe-honeysoy").frame.minY, element("saved-recipe-curry").frame.minY)
+        XCTAssertEqual(app.buttons["saved-unsave-curry"].value as? String, "Saved")
+        XCTAssertTrue(element("saved-status-honeysoy").label.contains("Already planned for Monday"))
+        capture("26-meals-saved")
+
+        app.buttons["saved-unsave-curry"].tap()
+        XCTAssertTrue(element("saved-recipe-curry").waitForNonExistence(timeout: 5))
+
+        let search = app.textFields["saved-search"]
+        search.tap()
+        search.typeText("No matching supper")
+        if app.keyboards.buttons["Search"].exists { app.keyboards.buttons["Search"].tap() }
+        XCTAssertTrue(element("saved-no-results-state").waitForExistence(timeout: 5))
+
+        launch(["--reset-fixture", "--saved-empty", "--start-saved"])
+        XCTAssertTrue(element("saved-empty-state").waitForExistence(timeout: 5))
+    }
+
+    func testExploreAccessibilityDynamicTypeLayout() {
+        launch([
+            "--reset-fixture",
+            "--start-discover",
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityL",
+        ])
+        XCTAssertTrue(element("styles-toggle").waitForExistence(timeout: 5))
+        scrollTo(element("cuisine-Asian"))
+        capture("27-meals-explore-accessibility-large")
+    }
+
+    private func launch(_ arguments: [String]) {
+        if app != nil { app.terminate() }
+        app = XCUIApplication()
+        app.launchArguments = arguments + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+    }
+
+    private func scrollTo(_ target: XCUIElement) {
+        var attempts = 0
+        while (!target.exists || !target.isHittable) && attempts < 12 {
+            app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(target.exists)
+        XCTAssertTrue(target.isHittable)
     }
 
     private func element(_ identifier: String) -> XCUIElement {

@@ -336,3 +336,107 @@ enum Personalization {
         }
     }
 }
+
+enum MealsBrowsing {
+    static func eligibleRecipes(
+        from recipes: [Recipe],
+        preferences: UserPreferences
+    ) -> [Recipe] {
+        recipes.filter { Personalization.eligibility(of: $0, preferences: preferences).isEligible }
+    }
+
+    static func search(_ recipes: [Recipe], query: String) -> [Recipe] {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return recipes }
+        return recipes.filter { recipe in
+            recipe.title.localizedCaseInsensitiveContains(normalized)
+                || recipe.sourceName.localizedCaseInsensitiveContains(normalized)
+                || recipe.cuisine?.rawValue.localizedCaseInsensitiveContains(normalized) == true
+                || recipe.tags.contains(where: { $0.localizedCaseInsensitiveContains(normalized) })
+                || recipe.mealStyles.contains(where: {
+                    $0.rawValue.localizedCaseInsensitiveContains(normalized)
+                        || $0.browseLabel.localizedCaseInsensitiveContains(normalized)
+                })
+                || recipe.ingredients.contains(where: {
+                    $0.ingredient.displayName.localizedCaseInsensitiveContains(normalized)
+                        || $0.ingredient.canonicalName.localizedCaseInsensitiveContains(normalized)
+                })
+        }
+    }
+
+    static func sorted(
+        _ recipes: [Recipe],
+        by sort: MealBrowseSort,
+        servings: Int,
+        priceBasisPoints: Int
+    ) -> [Recipe] {
+        recipes.sorted { lhs, rhs in
+            switch sort {
+            case .cheapest:
+                let lhsCost = pricedCost(lhs, servings: servings, priceBasisPoints: priceBasisPoints)
+                let rhsCost = pricedCost(rhs, servings: servings, priceBasisPoints: priceBasisPoints)
+                if lhsCost != rhsCost { return lhsCost < rhsCost }
+                if lhs.activeMinutes != rhs.activeMinutes { return lhs.activeMinutes < rhs.activeMinutes }
+            case .quickest:
+                if lhs.activeMinutes != rhs.activeMinutes { return lhs.activeMinutes < rhs.activeMinutes }
+                let lhsCost = pricedCost(lhs, servings: servings, priceBasisPoints: priceBasisPoints)
+                let rhsCost = pricedCost(rhs, servings: servings, priceBasisPoints: priceBasisPoints)
+                if lhsCost != rhsCost { return lhsCost < rhsCost }
+            case .title:
+                break
+            }
+            return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+        }
+    }
+
+    static func cuisineSummaries(
+        recipes: [Recipe],
+        servings: Int,
+        priceBasisPoints: Int
+    ) -> [CuisineSummary] {
+        Cuisine.allCases.compactMap { cuisine in
+            let matches = recipes.filter { $0.cuisine == cuisine }
+            guard let cheapest = sorted(
+                matches,
+                by: .cheapest,
+                servings: servings,
+                priceBasisPoints: priceBasisPoints
+            ).first else { return nil }
+            return CuisineSummary(
+                cuisine: cuisine,
+                mealCount: matches.count,
+                lowestPrice: pricedCost(
+                    cheapest,
+                    servings: servings,
+                    priceBasisPoints: priceBasisPoints
+                ),
+                representativeRecipeID: cheapest.id
+            )
+        }
+    }
+
+    static func orderedStyles(
+        recipes: [Recipe],
+        preferred: Set<MealStyle>
+    ) -> [MealStyle] {
+        let counts = Dictionary(uniqueKeysWithValues: MealStyle.allCases.map { style in
+            (style, recipes.filter { $0.mealStyles.contains(style) }.count)
+        })
+        let order = Dictionary(uniqueKeysWithValues: MealStyle.allCases.enumerated().map { ($0.element, $0.offset) })
+        return MealStyle.allCases.sorted { lhs, rhs in
+            let lhsPreferred = preferred.contains(lhs)
+            let rhsPreferred = preferred.contains(rhs)
+            if lhsPreferred != rhsPreferred { return lhsPreferred }
+            if counts[lhs] != counts[rhs] { return (counts[lhs] ?? 0) > (counts[rhs] ?? 0) }
+            return (order[lhs] ?? .max) < (order[rhs] ?? .max)
+        }
+    }
+
+    private static func pricedCost(
+        _ recipe: Recipe,
+        servings: Int,
+        priceBasisPoints: Int
+    ) -> Money {
+        recipe.estimatedCost(for: servings).scaled(byBasisPoints: priceBasisPoints)
+    }
+}

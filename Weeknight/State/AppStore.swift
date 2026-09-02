@@ -63,6 +63,7 @@ final class AppStore {
         }
         if arguments.contains("--m3-no-results") {
             canonical.preferences.dietaryRestrictions = [.vegan]
+            canonical.preferences.medicalAllergens = Set(MedicalAllergen.allCases)
         }
         if arguments.contains("--m3-personalized") {
             canonical.preferences.preferredProteins = [.pork]
@@ -76,6 +77,9 @@ final class AppStore {
             canonical.plan.slots = canonical.plan.slots.map { slot in
                 MealSlot(day: slot.day, recipeID: nil, servings: slot.servings)
             }
+        }
+        if arguments.contains("--saved-empty") {
+            canonical.savedRecipeRecords = []
         }
 
         let snapshot: AppSnapshot
@@ -185,6 +189,57 @@ final class AppStore {
         rankedDiscoverRecipes.map(\.recipe)
     }
 
+    var eligibleMealsCatalogue: [Recipe] {
+        MealsBrowsing.eligibleRecipes(from: recipesForCalculations, preferences: preferences)
+    }
+
+    var cuisineSummaries: [CuisineSummary] {
+        MealsBrowsing.cuisineSummaries(
+            recipes: eligibleMealsCatalogue,
+            servings: preferences.householdSize,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
+
+    var orderedMealStyles: [MealStyle] {
+        MealsBrowsing.orderedStyles(
+            recipes: eligibleMealsCatalogue,
+            preferred: preferences.preferredMealStyles
+        )
+    }
+
+    func exploreRecipes(matching query: String) -> [Recipe] {
+        MealsBrowsing.search(eligibleMealsCatalogue, query: query)
+    }
+
+    func cuisineRecipes(
+        _ cuisine: Cuisine,
+        matching query: String = "",
+        sort: MealBrowseSort = .cheapest
+    ) -> [Recipe] {
+        let cuisineRecipes = eligibleMealsCatalogue.filter { $0.cuisine == cuisine }
+        return MealsBrowsing.sorted(
+            MealsBrowsing.search(cuisineRecipes, query: query),
+            by: sort,
+            servings: preferences.householdSize,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
+
+    func styleRecipes(
+        _ style: MealStyle,
+        matching query: String = "",
+        sort: MealBrowseSort = .cheapest
+    ) -> [Recipe] {
+        let styleRecipes = eligibleMealsCatalogue.filter { $0.mealStyles.contains(style) }
+        return MealsBrowsing.sorted(
+            MealsBrowsing.search(styleRecipes, query: query),
+            by: sort,
+            servings: preferences.householdSize,
+            priceBasisPoints: preferences.supermarket.priceBasisPoints
+        )
+    }
+
     var scheduledPreferenceConflicts: [ScheduledPreferenceConflict] {
         Personalization.conflicts(in: plan, recipes: recipesForCalculations, preferences: preferences)
     }
@@ -265,7 +320,12 @@ final class AppStore {
         return ordered.filter { recipe in
             recipe.title.localizedCaseInsensitiveContains(normalized)
                 || recipe.sourceName.localizedCaseInsensitiveContains(normalized)
+                || recipe.cuisine?.rawValue.localizedCaseInsensitiveContains(normalized) == true
                 || recipe.tags.contains(where: { $0.localizedCaseInsensitiveContains(normalized) })
+                || recipe.mealStyles.contains(where: {
+                    $0.rawValue.localizedCaseInsensitiveContains(normalized)
+                        || $0.browseLabel.localizedCaseInsensitiveContains(normalized)
+                })
                 || recipe.ingredients.contains(where: {
                     $0.ingredient.displayName.localizedCaseInsensitiveContains(normalized)
                 })

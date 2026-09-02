@@ -14,7 +14,7 @@ const response = await app.inject({
   url: "/v1/recommendations",
   payload: {
     schemaVersion: 1,
-    catalogueVersion: "dev-2026-08-31.1",
+    catalogueVersion: "dev-2026-08-31.2",
     eligibleRecipeIDs: ["carbonara", "curry"],
     scheduledRecipeIDs: [],
     remainingBudgetMinorUnits: 3_000,

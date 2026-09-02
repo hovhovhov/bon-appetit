@@ -21,7 +21,7 @@ const recipe = (input: RecipeInput): CatalogueRecipe => {
   const ingredients = input.ingredientData.map(ingredient);
   return {
     id: input.id,
-    version: 1,
+    version: 2,
     title: input.title,
     source: {
       name: input.sourceName,
@@ -37,6 +37,7 @@ const recipe = (input: RecipeInput): CatalogueRecipe => {
     },
     activeMinutes: input.activeMinutes,
     defaultServings: input.defaultServings,
+    cuisine: input.cuisine,
     estimatedCost: {
       minorUnits: ingredients.reduce((sum, item) => sum + item.estimatedCostMinorUnits, 0),
       currency: "USD",
@@ -59,12 +60,12 @@ const recipe = (input: RecipeInput): CatalogueRecipe => {
 
 export const developmentCatalogue: Catalogue = {
   schemaVersion: 1,
-  catalogueVersion: "dev-2026-08-31.1",
+  catalogueVersion: "dev-2026-08-31.2",
   environment: "development",
   recipes: [
     recipe({
       id: "honeysoy", title: "Honey Soy Chicken & Broccoli", sourceName: "Sift & Simmer", artwork: "honeySoy",
-      activeMinutes: 25, defaultServings: 1, tags: ["Fakeaway", "Protein-packed"],
+      activeMinutes: 25, defaultServings: 1, cuisine: "Asian", tags: ["Fakeaway", "Protein-packed"],
       rationale: "One pan, and it uses the soy and honey already on your list.",
       ingredientData: [["chicken-thighs", "Chicken thighs", "Meat & fish", "500g", 620], ["broccoli", "Broccoli", "Produce", "1 head", 190], ["honey", "Honey", "Pantry", "2 tbsp", 60], ["soy-sauce", "Soy sauce", "Pantry", "3 tbsp", 50], ["jasmine-rice", "Jasmine rice", "Pantry", "150g", 120], ["garlic", "Garlic", "Produce", "3 cloves", 35], ["sesame-seeds", "Sesame seeds", "Pantry", "1 tsp", 25], ["spring-onions", "Spring onions", "Produce", "2", 60]],
       cookingSteps: ["Cook the rice until tender, then cover and keep warm.", "Brown the chicken in a wide pan, add broccoli, garlic, soy and honey, and simmer until glossy and cooked through.", "Spoon over the rice and finish with spring onions and sesame seeds."],
@@ -72,7 +73,7 @@ export const developmentCatalogue: Catalogue = {
     }),
     recipe({
       id: "chilli", title: "Smoky Chilli Con Carne", sourceName: "Cook Republic", artwork: "chilli",
-      activeMinutes: 45, defaultServings: 1, tags: ["Healthy comfort", "Batch friendly"],
+      activeMinutes: 45, defaultServings: 1, cuisine: "Mexican", tags: ["Healthy comfort", "Batch friendly"],
       rationale: "Makes a second portion for Thursday lunch at no extra cost.",
       ingredientData: [["beef-mince", "Beef mince", "Meat & fish", "400g", 640], ["kidney-beans", "Kidney beans", "Pantry", "1 tin", 110], ["chopped-tomatoes", "Chopped tomatoes", "Pantry", "1 tin", 95], ["onion", "Onion", "Produce", "1", 45], ["red-pepper", "Red pepper", "Produce", "1", 95], ["chipotle-paste", "Chipotle paste", "Pantry", "1 tbsp", 90], ["ground-cumin", "Ground cumin", "Pantry", "1 tsp", 30], ["sour-cream", "Sour cream", "Chilled & dairy", "1 pot", 165], ["long-grain-rice", "Long-grain rice", "Pantry", "150g", 90]],
       cookingSteps: ["Soften the onion and pepper, then brown the beef mince.", "Stir in chipotle and cumin, add tomatoes and beans, and simmer until thick.", "Serve with rice and a spoonful of sour cream."],
@@ -80,7 +81,7 @@ export const developmentCatalogue: Catalogue = {
     }),
     recipe({
       id: "stirfry", title: "Ginger Rice Noodle Stir-Fry", sourceName: "Wok & Kin", artwork: "stirFry",
-      activeMinutes: 20, defaultServings: 1, tags: ["Speedy", "Meat-free"],
+      activeMinutes: 20, defaultServings: 1, cuisine: "Asian", tags: ["Speedy", "Meat-free"],
       rationale: "Under 20 minutes and the lightest dinner already on your plan.",
       ingredientData: [["rice-noodles", "Rice noodles", "Pantry", "200g", 180], ["firm-tofu", "Firm tofu", "Chilled & dairy", "280g", 290], ["ginger", "Ginger", "Produce", "1 thumb", 55], ["garlic", "Garlic", "Produce", "3 cloves", 35], ["tenderstem-broccoli", "Tenderstem broccoli", "Produce", "200g", 220], ["carrot", "Carrot", "Produce", "1", 35], ["soy-sauce", "Soy sauce", "Pantry", "2 tbsp", 35], ["sesame-oil", "Sesame oil", "Pantry", "1 tbsp", 45], ["lime", "Lime", "Produce", "1", 45], ["crispy-shallots", "Crispy shallots", "Pantry", "30g", 80]],
       cookingSteps: ["Soak or cook the noodles according to the packet, then drain well.", "Crisp the tofu, then stir-fry the vegetables with ginger and garlic.", "Toss everything with soy, sesame oil and lime; top with crispy shallots."],
@@ -88,7 +89,7 @@ export const developmentCatalogue: Catalogue = {
     }),
     recipe({
       id: "carbonara", title: "Proper Carbonara", sourceName: "Bon Appétit", artwork: "carbonara",
-      activeMinutes: 20, defaultServings: 1, tags: ["Speedy", "Five ingredients"],
+      activeMinutes: 20, defaultServings: 1, cuisine: "Italian", tags: ["Speedy", "Five ingredients"],
       rationale: "The lowest-cost way to fill an open night this week.",
       ingredientData: [["spaghetti", "Spaghetti", "Pantry", "125g", 70], ["pancetta", "Pancetta", "Meat & fish", "100g", 310], ["eggs", "Eggs", "Chilled & dairy", "2", 70], ["pecorino", "Pecorino", "Chilled & dairy", "40g", 220], ["black-pepper", "Black pepper", "Pantry", "1 tsp", 25], ["parmesan", "Parmesan", "Chilled & dairy", "20g", 195]],
       cookingSteps: ["Cook the spaghetti in salted water and reserve a mug of pasta water.", "Crisp the pancetta while whisking the eggs, pecorino, parmesan and black pepper in a bowl.", "Off the heat, toss hot pasta with the egg mixture and enough pasta water to make a silky sauce."],
@@ -96,7 +97,7 @@ export const developmentCatalogue: Catalogue = {
     }),
     recipe({
       id: "curry", title: "Weeknight Chicken Curry", sourceName: "Meera Sodha", artwork: "curry",
-      activeMinutes: 40, defaultServings: 1, tags: ["Healthy comfort", "Freezes well"],
+      activeMinutes: 40, defaultServings: 1, cuisine: "Indian", tags: ["Healthy comfort", "Freezes well"],
       rationale: "A familiar, comforting finish to the week that stays inside budget.",
       ingredientData: [["chicken-thighs", "Chicken thighs", "Meat & fish", "400g", 520], ["onion", "Onion", "Produce", "1", 45], ["garlic", "Garlic", "Produce", "3 cloves", 35], ["ginger", "Ginger", "Produce", "1 thumb", 55], ["curry-powder", "Curry powder", "Pantry", "2 tbsp", 80], ["chopped-tomatoes", "Chopped tomatoes", "Pantry", "1 tin", 95], ["coconut-milk", "Coconut milk", "Pantry", "1 tin", 160], ["basmati-rice", "Basmati rice", "Pantry", "150g", 120], ["coriander", "Coriander", "Produce", "1 bunch", 90], ["spinach", "Spinach", "Produce", "100g", 40]],
       cookingSteps: ["Soften the onion, then add garlic, ginger and curry powder until fragrant.", "Brown the chicken, add tomatoes and coconut milk, and simmer until the chicken is cooked through.", "Fold in the spinach and serve with basmati rice and coriander."],

@@ -28,6 +28,7 @@ enum WeeknightFixture {
             sourceName: "Sift & Simmer",
             activeMinutes: 25,
             servings: 1,
+            cuisine: .asian,
             tags: ["Fakeaway", "Protein-packed"],
             rationale: "One pan, and it uses the soy and honey already on your list.",
             ingredients: [
@@ -57,6 +58,7 @@ enum WeeknightFixture {
             sourceName: "Cook Republic",
             activeMinutes: 45,
             servings: 1,
+            cuisine: .mexican,
             tags: ["Healthy comfort", "Batch friendly"],
             rationale: "Makes a second portion for Thursday lunch at no extra cost.",
             ingredients: [
@@ -88,6 +90,7 @@ enum WeeknightFixture {
             sourceName: "Wok & Kin",
             activeMinutes: 20,
             servings: 1,
+            cuisine: .asian,
             tags: ["Speedy", "Meat-free"],
             rationale: "Under 20 minutes and the lightest dinner already on your plan.",
             ingredients: [
@@ -120,6 +123,7 @@ enum WeeknightFixture {
             sourceName: "Bon Appétit",
             activeMinutes: 20,
             servings: 1,
+            cuisine: .italian,
             tags: ["Speedy", "Five ingredients"],
             rationale: "The lowest-cost way to fill an open night this week.",
             ingredients: [
@@ -147,6 +151,7 @@ enum WeeknightFixture {
             sourceName: "Meera Sodha",
             activeMinutes: 40,
             servings: 1,
+            cuisine: .indian,
             tags: ["Healthy comfort", "Freezes well"],
             rationale: "A familiar, comforting finish to the week that stays inside budget.",
             ingredients: [
