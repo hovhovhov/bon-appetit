@@ -560,6 +560,7 @@ struct SwapMealSheet: View {
     }
 
     @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.dismiss) private var dismiss
     let day: Weekday
     let onComplete: () -> Void
@@ -669,7 +670,7 @@ struct SwapMealSheet: View {
         Task {
             do {
                 try await store.assign(recipe: selectedRecipe, servings: servings, to: day)
-                store.selectedTab = .plan
+                navigation.showPlans()
                 dismiss()
                 onComplete()
             } catch {

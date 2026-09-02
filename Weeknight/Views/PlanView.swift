@@ -3,6 +3,7 @@ import UIKit
 
 struct PlanView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var swapDay: Weekday?
@@ -142,7 +143,7 @@ struct PlanView: View {
                     .font(.title3)
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Find dinners") { store.selectedTab = .discover }
+                Button("Find dinners") { navigation.showMeals() }
                     .buttonStyle(PrimaryActionButtonStyle())
                 Button("Draft my week") { runAutofill() }
                     .buttonStyle(SecondaryActionButtonStyle())
@@ -320,7 +321,7 @@ struct PlanView: View {
 
     private var openNightsLabel: some View {
         Button {
-            store.selectedTab = .discover
+            navigation.showMeals()
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
@@ -560,6 +561,7 @@ struct AutofillPresentation: Identifiable {
 
 private struct AutofillResultSheet: View {
     @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.dismiss) private var dismiss
     let presentation: AutofillPresentation
 
@@ -608,7 +610,7 @@ private struct AutofillResultSheet: View {
                             .foregroundStyle(WeeknightTheme.tomato)
                         Button("Review Preferences") {
                             dismiss()
-                            store.selectedTab = .preferences
+                            navigation.showPreferences()
                         }
                         .buttonStyle(PrimaryActionButtonStyle())
                         .accessibilityIdentifier("autofill-review-preferences")

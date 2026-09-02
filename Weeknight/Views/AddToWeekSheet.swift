@@ -10,6 +10,7 @@ struct AddToWeekSheet: View {
     }
 
     @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let recipe: Recipe
@@ -244,7 +245,7 @@ struct AddToWeekSheet: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 UIAccessibility.post(notification: .announcement, argument: "\(recipe.title) added to \(selectedDay.rawValue)")
                 if !reduceMotion { try? await Task.sleep(nanoseconds: 320_000_000) }
-                store.selectedTab = .plan
+                navigation.showPlans()
                 dismiss()
             } catch {
                 commitState = .failure(error.localizedDescription)

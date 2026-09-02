@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoverView: View {
     @Environment(AppStore.self) private var store
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedRecipe: Recipe?
     @State private var detailRecipeID: Recipe.ID?
@@ -62,7 +63,7 @@ struct DiscoverView: View {
                 title: "No recipes yet",
                 message: "There is nothing in this recipe source right now.",
                 action: "Back to Plan"
-            ) { store.selectedTab = .plan }
+            ) { navigation.showPlans() }
         case .ready, .stale:
             if store.discoverRecipes.isEmpty {
                 noResultsState
@@ -111,14 +112,14 @@ struct DiscoverView: View {
                 title: "Every dinner is planned",
                 message: "Your active week already contains every available recipe.",
                 action: "See the plan"
-            ) { store.selectedTab = .plan }
+            ) { navigation.showPlans() }
         } else {
             statePanel(
                 icon: "slider.horizontal.3",
                 title: "No recipes meet every hard rule",
                 message: "The remaining recipes conflict with your current eligibility settings. Hard rules were not weakened.",
                 action: "Review Preferences"
-            ) { store.selectedTab = .preferences }
+            ) { navigation.showPreferences() }
             .accessibilityIdentifier("discover-no-results")
         }
     }

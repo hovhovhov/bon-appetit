@@ -1,17 +1,9 @@
 import Foundation
 import Observation
 
-enum AppTab: Hashable {
-    case plan
-    case discover
-    case saved
-    case preferences
-}
-
 @MainActor
 @Observable
 final class AppStore {
-    var selectedTab: AppTab = .plan
     private(set) var plan: WeekPlan
     private(set) var recipes: [Recipe]
     private(set) var checkedIngredientIDs: Set<Ingredient.ID>
@@ -122,11 +114,6 @@ final class AppStore {
         self.backendClient = resolvedBackendClient
         self.backendCache = resolvedBackendCache
         self.now = now
-        if arguments.contains("--start-preferences") {
-            self.selectedTab = .preferences
-        } else if arguments.contains("--start-discover") {
-            self.selectedTab = .discover
-        }
     }
 
     var recipeLookup: [Recipe.ID: Recipe] { Planning.recipesByID(recipesForCalculations) }
@@ -713,7 +700,6 @@ final class AppStore {
         recipeMode = backendClient == nil ? .ready : .loading
         shoppingMode = .ready
         savedMode = .ready
-        selectedTab = .plan
         confirmationMessage = "The canonical demo week has been reset."
         planMutationCount = 0
         if backendClient != nil {

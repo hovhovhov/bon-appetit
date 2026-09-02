@@ -1,8 +1,63 @@
 import SwiftUI
 import UIKit
+import Observation
+
+enum AppTab: Hashable {
+    case plans
+    case meals
+    case preferences
+    case settings
+}
+
+enum MealsSection: String, CaseIterable, Identifiable {
+    case forYou = "For You"
+    case saved = "Saved"
+
+    var id: Self { self }
+}
+
+@MainActor
+@Observable
+final class AppNavigation {
+    var selectedTab: AppTab
+    var mealsSection: MealsSection
+    let showsLegacyDiscoverFeed: Bool
+
+    init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+        if arguments.contains("--start-preferences") {
+            selectedTab = .preferences
+        } else if arguments.contains("--start-settings") {
+            selectedTab = .settings
+        } else if arguments.contains("--start-discover") || arguments.contains("--start-saved") {
+            selectedTab = .meals
+        } else {
+            selectedTab = .plans
+        }
+        mealsSection = arguments.contains("--start-saved") ? .saved : .forYou
+#if DEBUG
+        showsLegacyDiscoverFeed = arguments.contains("--legacy-discover-feed")
+#else
+        showsLegacyDiscoverFeed = false
+#endif
+    }
+
+    func showPlans() {
+        selectedTab = .plans
+    }
+
+    func showMeals(_ section: MealsSection = .forYou) {
+        mealsSection = section
+        selectedTab = .meals
+    }
+
+    func showPreferences() {
+        selectedTab = .preferences
+    }
+}
 
 struct RootView: View {
     @State private var store = AppStore()
+    @State private var navigation = AppNavigation()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init() {
@@ -16,37 +71,44 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var store = store
+        @Bindable var navigation = navigation
 
-        TabView(selection: $store.selectedTab) {
+        TabView(selection: $navigation.selectedTab) {
             NavigationStack {
                 PlanView()
             }
-            .tabItem { Label("Plan", systemImage: "calendar") }
-            .tag(AppTab.plan)
+            .toolbarBackground(WeeknightTheme.background, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .tabItem { Label("Plans", systemImage: "calendar") }
+            .tag(AppTab.plans)
 
             NavigationStack {
-                DiscoverView()
+                MealsView()
             }
-            .tabItem { Label("Discover", systemImage: "rectangle.stack") }
-            .tag(AppTab.discover)
-
-            NavigationStack {
-                SavedView()
-            }
-            .tabItem { Label("Saved", systemImage: "bookmark") }
-            .tag(AppTab.saved)
+            .toolbarBackground(WeeknightTheme.background, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .tabItem { Label("Meals", systemImage: "fork.knife") }
+            .tag(AppTab.meals)
 
             NavigationStack {
                 PreferencesView()
             }
-            .tabItem {
-                Label("You", systemImage: "person")
-                    .accessibilityLabel("Preferences")
-            }
+            .toolbarBackground(WeeknightTheme.background, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .tabItem { Label("Preferences", systemImage: "slider.horizontal.3") }
             .tag(AppTab.preferences)
+
+            NavigationStack {
+                SettingsView()
+            }
+            .toolbarBackground(WeeknightTheme.background, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
+            .tabItem { Label("Settings", systemImage: "gearshape") }
+            .tag(AppTab.settings)
         }
         .tint(WeeknightTheme.forest)
         .environment(store)
+        .environment(navigation)
         .overlay(alignment: .bottom) {
             if let message = store.confirmationMessage {
                 ConfirmationToast(message: message)
