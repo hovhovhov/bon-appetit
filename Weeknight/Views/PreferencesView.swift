@@ -29,7 +29,7 @@ enum PreferenceEditorKind: String, CaseIterable, Identifiable, Hashable {
         case .allergens: "Medical allergens"
         case .dislikes: "Disliked ingredients"
         case .proteins: "Preferred proteins"
-        case .mealStyles: "Meal styles & vibes"
+        case .mealStyles: "Meal styles"
         case .appliances: "Kitchen appliances"
         }
     }
@@ -52,7 +52,7 @@ enum PreferenceEditorKind: String, CaseIterable, Identifiable, Hashable {
         case .household: "Sets servings for planned dinners and scales the budget preview and shopping list."
         case .cookingDays: "Sets the nights that appear on your active week."
         case .budget: "Helps rank recipes and choose an autofill combination. It never changes medical eligibility."
-        case .cookingTime: "Discover flags slower recipes; autofill uses this as a firm limit."
+        case .cookingTime: "For You flags slower recipes; autofill uses this as a firm limit."
         case .dietary: "Recipes that do not meet every selected dietary restriction are excluded."
         case .allergens: "Recipes with a matching declared allergen are excluded before ranking."
         case .dislikes: "Recipes can still appear, but ingredients you dislike lower their ranking."
@@ -65,7 +65,6 @@ enum PreferenceEditorKind: String, CaseIterable, Identifiable, Hashable {
 
 struct PreferencesView: View {
     @Environment(AppStore.self) private var store
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var launchedEditor: PreferenceEditorKind?
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
@@ -81,19 +80,9 @@ struct PreferencesView: View {
             VStack(alignment: .leading, spacing: 26) {
                 header
                 planningSummary
-                preferenceSection("THE WEEK", kinds: [.supermarket, .market, .household, .cookingDays, .budget, .cookingTime])
+                preferenceSection("THE WEEK", kinds: [.market, .supermarket, .household, .cookingDays, .budget, .cookingTime])
                 preferenceSection("WHAT YOU EAT", kinds: [.dietary, .allergens, .dislikes, .proteins, .mealStyles])
                 preferenceSection("KITCHEN", kinds: [.appliances])
-                reduceMotionRow
-
-                Button {
-                    store.resetFixture()
-                } label: {
-                    Label("Reset demo week", systemImage: "arrow.counterclockwise")
-                }
-                .buttonStyle(SecondaryActionButtonStyle())
-                .accessibilityHint("Restores the canonical plan, preferences, shopping progress, Saved recipes, and notes")
-                .accessibilityIdentifier("reset-fixture")
 
                 Text("Recipe and shopping prices are deterministic local estimates, not live checkout quotes. Always verify ingredient labels and allergen information yourself.")
                     .font(.footnote)
@@ -120,7 +109,7 @@ struct PreferencesView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("You")
+            Text("Preferences")
                 .font(.largeTitle.weight(.black))
                 .foregroundStyle(WeeknightTheme.primaryText)
                 .accessibilityIdentifier("preferences-title")
@@ -205,26 +194,6 @@ struct PreferencesView: View {
         values.isEmpty ? "None selected" : values.sorted().joined(separator: ", ")
     }
 
-    private var reduceMotionRow: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Reduce motion")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                Text("Follows the iPhone system setting")
-                    .font(.body)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-            }
-            Spacer()
-            Image(systemName: reduceMotion ? "checkmark.circle.fill" : "circle")
-                .font(.title2)
-                .foregroundStyle(reduceMotion ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
-        }
-        .frame(minHeight: 56)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Reduce motion")
-        .accessibilityValue(reduceMotion ? "On, follows system setting" : "Off, follows system setting")
-    }
 }
 
 private struct PreferenceEditorSheet: View {
@@ -267,10 +236,13 @@ private struct PreferenceEditorSheet: View {
         }
         .background(WeeknightTheme.background.ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomAction
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+            VStack(spacing: 0) {
+                Divider().overlay(WeeknightTheme.hairline)
+                bottomAction
+                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                    .padding(.vertical, 10)
+            }
+            .background(WeeknightTheme.background)
         }
         .navigationTitle(phaseTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -292,24 +264,30 @@ private struct PreferenceEditorSheet: View {
     private var editorContent: some View {
         switch kind {
         case .supermarket:
-            VStack(spacing: 10) {
-                ForEach(Supermarket.allCases) { option in
+            VStack(spacing: 0) {
+                ForEach(Array(Supermarket.allCases.enumerated()), id: \.element.id) { index, option in
                     selectionRow(
                         title: option.rawValue,
                         subtitle: quoteDescription(option),
                         selected: draft.supermarket == option
                     ) { draft.supermarket = option }
+                    if index < Supermarket.allCases.count - 1 {
+                        Divider().overlay(WeeknightTheme.hairline)
+                    }
                 }
             }
         case .market:
-            VStack(spacing: 10) {
-                ForEach(MarketOption.allCases) { option in
+            VStack(spacing: 0) {
+                ForEach(Array(MarketOption.allCases.enumerated()), id: \.element.id) { index, option in
                     selectionRow(
                         title: option.rawValue,
                         subtitle: option.isSupported ? "Supported local price catalogue" : "Unavailable in this prototype",
                         selected: draft.market == option,
                         enabled: option.isSupported
                     ) { draft.market = option }
+                    if index < MarketOption.allCases.count - 1 {
+                        Divider().overlay(WeeknightTheme.hairline)
+                    }
                 }
             }
         case .household:
@@ -326,10 +304,13 @@ private struct PreferenceEditorSheet: View {
                 Text("Choose at least one night.")
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ForEach(Weekday.allCases) { day in
-                        optionButton(day.rawValue, selected: draft.cookingDays.contains(day), identifier: "day-\(day.shortName)") {
+                VStack(spacing: 0) {
+                    ForEach(Array(Weekday.allCases.enumerated()), id: \.element.id) { index, day in
+                        checkmarkRow(day.rawValue, selected: draft.cookingDays.contains(day), identifier: "day-\(day.shortName)") {
                             toggle(day, in: &draft.cookingDays, minimumOne: true)
+                        }
+                        if index < Weekday.allCases.count - 1 {
+                            Divider().overlay(WeeknightTheme.hairline)
                         }
                     }
                 }
@@ -368,27 +349,30 @@ private struct PreferenceEditorSheet: View {
                 Text("Select every appliance you can use. Leaving all unselected can make every recipe ineligible.")
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
-                ForEach(KitchenAppliance.allCases) { appliance in
-                    Button {
-                        toggle(appliance, in: &draft.availableAppliances)
-                    } label: {
-                        HStack {
-                            Image(systemName: appliance.systemImage).frame(width: 30)
-                            Text(appliance.rawValue).font(.headline)
-                            Spacer()
-                            Image(systemName: draft.availableAppliances.contains(appliance) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(draft.availableAppliances.contains(appliance) ? WeeknightTheme.leaf : WeeknightTheme.secondaryText)
+                VStack(spacing: 0) {
+                    ForEach(Array(KitchenAppliance.allCases.enumerated()), id: \.element.id) { index, appliance in
+                        Button {
+                            toggle(appliance, in: &draft.availableAppliances)
+                        } label: {
+                            HStack {
+                                Image(systemName: appliance.systemImage).frame(width: 30)
+                                Text(appliance.rawValue).font(.headline)
+                                Spacer()
+                                Image(systemName: draft.availableAppliances.contains(appliance) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(draft.availableAppliances.contains(appliance) ? WeeknightTheme.leaf : WeeknightTheme.secondaryText)
+                            }
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                            .padding(.vertical, 12)
+                            .frame(minHeight: 54)
                         }
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                        .padding(15)
-                        .frame(minHeight: 54)
-                        .background(WeeknightTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(draft.availableAppliances.contains(appliance) ? .isSelected : [])
+                        .accessibilityValue(draft.availableAppliances.contains(appliance) ? "Selected" : "Not selected")
+                        .accessibilityIdentifier("appliance-\(appliance.id)")
+                        if index < KitchenAppliance.allCases.count - 1 {
+                            Divider().overlay(WeeknightTheme.hairline)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(draft.availableAppliances.contains(appliance) ? .isSelected : [])
-                    .accessibilityValue(draft.availableAppliances.contains(appliance) ? "Selected" : "Not selected")
-                    .accessibilityIdentifier("appliance-\(appliance.id)")
                 }
             }
         }
@@ -399,14 +383,17 @@ private struct PreferenceEditorSheet: View {
             WeeknightFixture.recipes.flatMap(\.ingredients).map { ($0.ingredient.id, $0.ingredient) },
             uniquingKeysWith: { first, _ in first }
         ).values.sorted { $0.displayName < $1.displayName }
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 9)], spacing: 9) {
-            ForEach(ingredients) { ingredient in
-                optionButton(
+        return VStack(spacing: 0) {
+            ForEach(Array(ingredients.enumerated()), id: \.element.id) { index, ingredient in
+                checkmarkRow(
                     ingredient.displayName,
                     selected: draft.dislikedIngredientIDs.contains(ingredient.id),
                     identifier: "dislike-\(ingredient.id)"
                 ) {
                     toggle(ingredient.id, in: &draft.dislikedIngredientIDs)
+                }
+                if index < ingredients.count - 1 {
+                    Divider().overlay(WeeknightTheme.hairline)
                 }
             }
         }
@@ -524,7 +511,6 @@ private struct PreferenceEditorSheet: View {
             }
             .buttonStyle(PrimaryActionButtonStyle())
             .disabled(phase == .saving || draft == store.preferences)
-            .opacity(draft == store.preferences ? 0.45 : 1)
             .accessibilityIdentifier("preference-save")
             .accessibilityValue(phase == .saving ? "Saving" : (draft == store.preferences ? "Disabled" : "Enabled"))
         }
@@ -580,10 +566,8 @@ private struct PreferenceEditorSheet: View {
                     .foregroundStyle(selected ? WeeknightTheme.leaf : WeeknightTheme.secondaryText)
             }
             .foregroundStyle(enabled ? WeeknightTheme.primaryText : WeeknightTheme.secondaryText)
-            .padding(15)
+            .padding(.vertical, 12)
             .frame(minHeight: 60)
-            .background(WeeknightTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -591,22 +575,21 @@ private struct PreferenceEditorSheet: View {
         .accessibilityValue(enabled ? (selected ? "Selected" : "Not selected") : "Unavailable")
     }
 
-    private func optionButton(_ title: String, selected: Bool, identifier: String, action: @escaping () -> Void) -> some View {
+    private func checkmarkRow(_ title: String, selected: Bool, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 7) {
-                Text(title).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)) }
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.secondaryText)
             }
-            .foregroundStyle(selected ? WeeknightTheme.background : WeeknightTheme.primaryText)
-            .padding(.horizontal, 13)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(selected ? WeeknightTheme.forest : WeeknightTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(selected ? WeeknightTheme.forest : WeeknightTheme.forest.opacity(0.12), lineWidth: 1)
-            }
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -624,35 +607,27 @@ private struct PreferenceEditorSheet: View {
         prefix: String = "",
         update: @escaping (Int) -> Void
     ) -> some View {
-        VStack(spacing: 20) {
-            Text("\(prefix)\(value)")
-                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
-                .foregroundStyle(WeeknightTheme.primaryText)
-            Text(unit).font(.headline).foregroundStyle(WeeknightTheme.secondaryText)
-            HStack(spacing: 26) {
-                Button { update(value - step) } label: {
-                    Image(systemName: "minus").frame(width: 56, height: 56)
+        VStack(alignment: .leading, spacing: 12) {
+            Stepper(
+                value: Binding(get: { value }, set: update),
+                in: minimum...maximum,
+                step: step
+            ) {
+                LabeledContent(kind.title) {
+                    Text("\(prefix)\(value)")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
                 }
-                .buttonStyle(.bordered)
-                .disabled(value <= minimum)
-                .accessibilityLabel("Decrease \(kind.title)")
-                .accessibilityIdentifier("\(identifier)-decrease")
-                Button { update(value + step) } label: {
-                    Image(systemName: "plus").frame(width: 56, height: 56)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(WeeknightTheme.bottle)
-                .disabled(value >= maximum)
-                .accessibilityLabel("Increase \(kind.title)")
-                .accessibilityIdentifier("\(identifier)-increase")
             }
+            .frame(minHeight: 52)
+            .accessibilityValue("\(prefix)\(value), \(unit)")
+            .accessibilityIdentifier("\(identifier)-stepper")
             Text("Allowed range: \(prefix)\(minimum) to \(prefix)\(maximum)")
                 .font(.footnote)
                 .foregroundStyle(WeeknightTheme.secondaryText)
         }
-        .padding(24)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .weeknightCard()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("\(identifier)-value")
     }
@@ -663,12 +638,16 @@ private struct PreferenceEditorSheet: View {
         prefix: String,
         update: @escaping (Set<Option>) -> Void
     ) -> some View where Option.RawValue == String, Option.AllCases: RandomAccessCollection {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 9)], spacing: 9) {
-            ForEach(options) { option in
-                optionButton(option.rawValue, selected: selected.contains(option), identifier: "\(prefix)-\(option.rawValue)") {
+        let values = Array(options)
+        return VStack(spacing: 0) {
+            ForEach(Array(values.enumerated()), id: \.element.id) { index, option in
+                checkmarkRow(option.rawValue, selected: selected.contains(option), identifier: "\(prefix)-\(option.rawValue)") {
                     var changed = selected
                     toggle(option, in: &changed)
                     update(changed)
+                }
+                if index < values.count - 1 {
+                    Divider().overlay(WeeknightTheme.hairline)
                 }
             }
         }
