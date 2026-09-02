@@ -13,16 +13,53 @@ struct PlanView: View {
 
     var body: some View {
         ScrollView {
-            Group {
-                if store.filledCount == 0 {
-                    emptyWeek
-                } else if store.filledCount == store.totalCount {
-                    completedWeek
-                } else {
-                    partialWeek
+            LazyVStack(alignment: .leading, spacing: 0) {
+                weekSummary
+
+                if showsBackendStatus {
+                    BackendStatusView(onDark: false)
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                        .padding(.top, 16)
                 }
+
+                shoppingAction
+                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                    .padding(.top, 20)
+
+                if store.filledCount < store.totalCount {
+                    openWeekActions
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                        .padding(.top, 20)
+                }
+
+                Text("Cooking days")
+                    .font(.title2.weight(.black))
+                    .foregroundStyle(WeeknightTheme.primaryText)
+                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                    .padding(.top, 28)
+                    .padding(.bottom, 6)
+
+                VStack(spacing: 0) {
+                    ForEach(store.plan.slots) { slot in
+                        dayRow(slot)
+                        if slot.id != store.plan.slots.last?.id {
+                            Divider()
+                                .overlay(WeeknightTheme.hairline)
+                                .padding(.leading, WeeknightTheme.Spacing.gutter)
+                        }
+                    }
+                }
+                .animation(reduceMotion ? nil : .easeOut(duration: WeeknightTheme.Motion.settle), value: store.filledCount)
+
+                if store.filledCount == store.totalCount, store.totalCount > 0 {
+                    completedCelebration
+                        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+                        .padding(.top, 30)
+                        .transition(.opacity)
+                }
+
+                estimateFootnote
             }
-            .animation(reduceMotion ? nil : .easeOut(duration: WeeknightTheme.Motion.completion), value: store.filledCount == store.totalCount)
         }
         .scrollIndicators(.hidden)
         .background(WeeknightTheme.background.ignoresSafeArea())
@@ -60,376 +97,292 @@ struct PlanView: View {
         .accessibilityIdentifier("plan-screen")
     }
 
-    private var partialWeek: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            weekHeader(showShoppingProgress: true)
-            if showsBackendStatus {
-                BackendStatusView(onDark: false)
-                    .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                    .padding(.top, WeeknightTheme.Spacing.medium)
-            }
-            if let feature = featuredSlot, let recipe = store.recipe(for: feature) {
-                featuredMeal(slot: feature, recipe: recipe)
-                    .padding(.top, WeeknightTheme.Spacing.medium)
-            }
-            plannedRowsExcludingFeature
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-            openNightsRow
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                .padding(.top, 8)
-            estimateFootnote
-        }
-    }
+    private var weekSummary: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("PLANS · \(store.plan.weekLabel.uppercased())")
+                .font(.caption.weight(.bold))
+                .tracking(1.6)
+                .foregroundStyle(WeeknightTheme.forest)
 
-    private var completedWeek: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("\(store.totalCount) DINNERS · \(store.weeklySpend.formatted())")
-                    .font(.caption.weight(.bold))
-                    .tracking(1.8)
-                    .foregroundStyle(WeeknightTheme.forest)
-                Text("Your week\nis ready")
-                    .font(.system(.largeTitle, design: .default, weight: .black))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("plan-headline")
-                    .accessibilityLabel("Your week is ready to shop")
-                BudgetProgressBar(spent: store.weeklySpend, budget: store.plan.budget)
-                Text(completionBudgetLine)
-                    .font(.subheadline)
-                    .foregroundStyle(store.remainingBudget.minorUnits < 0 ? WeeknightTheme.tomato : WeeknightTheme.secondaryText)
-                Text("\(store.filledCount) of \(store.totalCount) dinners planned")
-                    .font(.caption)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                    .accessibilityIdentifier("plan-progress")
-            }
-            .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-            .padding(.top, WeeknightTheme.Spacing.standard)
+            Text(planHeadline)
+                .font(.largeTitle.weight(.black))
+                .foregroundStyle(WeeknightTheme.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("plan-headline")
+                .accessibilityLabel(planHeadlineAccessibilityLabel)
 
-            completedMosaic
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                .padding(.top, WeeknightTheme.Spacing.standard)
+            Label(store.plan.storeName, systemImage: "storefront")
+                .font(.headline)
+                .foregroundStyle(WeeknightTheme.primaryText)
 
-            shoppingCallToAction
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                .padding(.top, WeeknightTheme.Spacing.standard)
-
-            estimateFootnote
-        }
-    }
-
-    private var emptyWeek: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            weekHeader(showShoppingProgress: false, identifiesHeadline: false)
-            if let recipe = store.rankedDiscoverRecipes.first?.recipe ?? store.recipesForCalculations.first {
-                ZStack(alignment: .bottomLeading) {
-                    RecipeArtwork(style: recipe.artwork)
-                        .frame(height: dynamicTypeSize.isAccessibilitySize ? 220 : 292)
-                    WeeknightTheme.background.opacity(0.68)
-                    NotchedDayTab(text: firstOpenDay.map { "\($0.shortName) · OPEN" } ?? "OPEN")
-                        .padding(.leading, WeeknightTheme.Spacing.gutter)
-                        .offset(y: 1)
-                }
-                .clipShape(.rect(bottomLeadingRadius: 30, bottomTrailingRadius: 30))
-                .padding(.top, WeeknightTheme.Spacing.medium)
-            }
-
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Nothing planned yet")
-                    .font(.system(.largeTitle, design: .default, weight: .black))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                    .accessibilityIdentifier("plan-headline")
-                Text("Swipe through dinners that fit \(store.plan.budget.formatted()) at \(store.plan.storeName), or let Weeknight draft the week for you.")
-                    .font(.title3)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Find dinners") { navigation.showMeals() }
-                    .buttonStyle(PrimaryActionButtonStyle())
-                Button("Draft my week") { runAutofill() }
-                    .buttonStyle(SecondaryActionButtonStyle())
-                    .disabled(store.isAutofilling)
-                    .accessibilityIdentifier("autofill-plan")
-            }
-            .padding(WeeknightTheme.Spacing.gutter)
-            estimateFootnote
-        }
-    }
-
-    private func weekHeader(showShoppingProgress: Bool, identifiesHeadline: Bool = true) -> some View {
-        VStack(alignment: .leading, spacing: 15) {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text("This week")
-                        .font(.largeTitle.weight(.black))
-                        .accessibilityIdentifier(identifiesHeadline ? "plan-headline" : "plan-week-header")
+                    budgetAmount
                     Spacer(minLength: 12)
-                    storeAndDate
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("This week")
-                        .font(.largeTitle.weight(.black))
-                        .accessibilityIdentifier(identifiesHeadline ? "plan-headline" : "plan-week-header")
-                    storeAndDate
-                }
-            }
-            .foregroundStyle(WeeknightTheme.primaryText)
-
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(store.weeklySpend.formatted())
-                        .font(.headline.weight(.black))
-                        .accessibilityIdentifier("budget-spent")
-                        .accessibilityLabel("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
-                    Text("of \(store.plan.budget.formatted())")
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                    Spacer(minLength: 8)
-                    if showShoppingProgress {
-                        shoppingHeaderLink
-                    } else {
-                        Text("0 of \(store.totalCount) dinners")
-                            .foregroundStyle(WeeknightTheme.secondaryText)
-                    }
+                    dinnerCount
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 4) {
-                        Text(store.weeklySpend.formatted())
-                            .font(.headline.weight(.black))
-                            .accessibilityIdentifier("budget-spent")
-                            .accessibilityLabel("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
-                        Text("of \(store.plan.budget.formatted())")
-                            .foregroundStyle(WeeknightTheme.secondaryText)
-                    }
-                    if showShoppingProgress { shoppingHeaderLink }
+                    budgetAmount
+                    dinnerCount
                 }
             }
-            .font(.subheadline)
 
             BudgetProgressBar(spent: store.weeklySpend, budget: store.plan.budget)
+                .accessibilityLabel("Budget progress")
+                .accessibilityValue("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
 
-            Text("\(store.filledCount) of \(store.totalCount) dinners planned")
-                .font(.caption)
-                .foregroundStyle(WeeknightTheme.secondaryText)
-                .accessibilityIdentifier("plan-progress")
-            Text(store.remainingBudget.minorUnits >= 0 ? "\(store.remainingBudget.formatted()) left to spend" : "\(Money(minorUnits: abs(store.remainingBudget.minorUnits)).formatted()) over budget")
-                .font(.caption)
-                .foregroundStyle(store.remainingBudget.minorUnits >= 0 ? WeeknightTheme.secondaryText : WeeknightTheme.tomato)
+            Label(budgetStatusText, systemImage: store.remainingBudget.minorUnits < 0 ? "exclamationmark.triangle.fill" : "checkmark.circle")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(store.remainingBudget.minorUnits < 0 ? WeeknightTheme.tomato : WeeknightTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("budget-remaining")
         }
         .padding(.horizontal, WeeknightTheme.Spacing.gutter)
         .padding(.top, WeeknightTheme.Spacing.standard)
     }
 
-    private var storeAndDate: some View {
-        Text("\(store.plan.storeName) · \(store.plan.weekLabel)")
-            .font(.caption.weight(.bold))
-            .tracking(1)
-            .foregroundStyle(WeeknightTheme.secondaryText)
-            .lineLimit(2)
-            .multilineTextAlignment(.trailing)
+    private var budgetAmount: some View {
+        Text("\(store.weeklySpend.formatted()) of \(store.plan.budget.formatted())")
+            .font(.title3.weight(.black))
+            .foregroundStyle(WeeknightTheme.primaryText)
+            .accessibilityIdentifier("budget-spent")
     }
 
-    private var shoppingHeaderLink: some View {
+    private var dinnerCount: some View {
+        Text("\(store.filledCount) of \(store.totalCount) dinners planned")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(WeeknightTheme.secondaryText)
+            .accessibilityIdentifier("plan-progress")
+    }
+
+    private var shoppingAction: some View {
         Button {
             store.confirmationMessage = nil
             showsShoppingList = true
         } label: {
-            Text("\(store.filledCount) of \(store.totalCount) dinners · list \(store.shoppingProgress.display)")
-                .foregroundStyle(WeeknightTheme.secondaryText)
-                .lineLimit(2)
-                .accessibilityIdentifier("shopping-progress")
+            HStack(spacing: 14) {
+                Image(systemName: "cart")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(WeeknightTheme.background)
+                    .frame(width: 48, height: 48)
+                    .background(WeeknightTheme.forest)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Shopping List")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.primaryText)
+                    Text("\(store.shoppingProgress.display) items checked")
+                        .font(.subheadline)
+                        .foregroundStyle(WeeknightTheme.secondaryText)
+                        .accessibilityIdentifier("shopping-progress")
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(WeeknightTheme.forest)
+                    .accessibilityHidden(true)
+            }
+            .padding(14)
+            .background(WeeknightTheme.surfaceElevated.opacity(0.72))
+            .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("open-shopping-list")
         .accessibilityLabel("Shopping list, \(store.shoppingProgress.display) items checked")
+        .accessibilityHint("Opens the shopping list generated from this week")
+    }
+
+    private var openWeekActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if store.filledCount == 0 {
+                Text("Start with a dinner you’ll look forward to, or let Weeknight fill your configured cooking days.")
+                    .font(.body)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("\(openSlots.count) cooking day\(openSlots.count == 1 ? " is" : "s are") still open.")
+                    .font(.body)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+            }
+
+            Button("Find meals") { navigation.showMeals() }
+                .buttonStyle(PrimaryActionButtonStyle())
+
+            Button { runAutofill() } label: {
+                if store.isAutofilling {
+                    ProgressView()
+                } else {
+                    Label(store.filledCount == 0 ? "Draft my week" : "Fill open days", systemImage: "wand.and.stars")
+                }
+            }
+            .buttonStyle(SecondaryActionButtonStyle())
+            .disabled(store.isAutofilling)
+            .accessibilityIdentifier("autofill-plan")
+        }
     }
 
     @ViewBuilder
-    private func featuredMeal(slot: MealSlot, recipe: Recipe) -> some View {
+    private func dayRow(_ slot: MealSlot) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 14) {
+                Text(slot.day.shortName.uppercased())
+                    .font(.caption.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(WeeknightTheme.forest)
+                    .frame(width: 48, height: 44, alignment: .leading)
+
+                if let recipe = store.recipe(for: slot) {
+                    RecipeArtwork(style: recipe.artwork, compact: true)
+                        .frame(width: 72, height: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recipe.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("meal-\(slot.day.rawValue)")
+                        Text("\(recipe.activeMinutes) min · serves \(slot.servings) · \(store.estimatedCost(for: recipe, servings: slot.servings).formatted())")
+                            .font(.subheadline)
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if store.conflict(for: slot.day) == nil {
+                            Label("Fits your current setup", systemImage: "checkmark.circle")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(WeeknightTheme.forest)
+                        }
+                    }
+                } else {
+                    Image(systemName: "plus")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(WeeknightTheme.forest)
+                        .frame(width: 72, height: 72)
+                        .background(WeeknightTheme.surfaceElevated)
+                        .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No meal planned")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(WeeknightTheme.primaryText)
+                        Text("Choose a recommendation for \(slot.day.rawValue).")
+                            .font(.subheadline)
+                            .foregroundStyle(WeeknightTheme.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if let recipe = store.recipe(for: slot) {
+                filledDayActions(slot: slot, recipe: recipe)
+                if let conflict = store.conflict(for: slot.day) {
+                    planConflictWarning(conflict)
+                }
+            } else {
+                Button("Add meal") { navigation.showMeals() }
+                    .buttonStyle(.bordered)
+                    .tint(WeeknightTheme.forest)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("add-meal-\(slot.day.rawValue)")
+                    .accessibilityHint("Opens For You recommendations")
+            }
+        }
+        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+        .padding(.vertical, 16)
+        .accessibilityIdentifier("plan-day-\(slot.day.rawValue)")
+    }
+
+    private func filledDayActions(slot: MealSlot, recipe: Recipe) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                viewRecipeLink(slot: slot, recipe: recipe)
+                replaceButton(day: slot.day)
+                clearButton(day: slot.day)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                viewRecipeLink(slot: slot, recipe: recipe)
+                replaceButton(day: slot.day)
+                clearButton(day: slot.day)
+            }
+        }
+        .padding(.leading, 62)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func viewRecipeLink(slot: MealSlot, recipe: Recipe) -> some View {
         NavigationLink {
             RecipeDetailsView(recipeID: recipe.id, origin: .plan, initialServings: slot.servings)
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack(alignment: .bottomLeading) {
-                    RecipeArtwork(style: recipe.artwork)
-                        .frame(height: dynamicTypeSize.isAccessibilitySize ? 220 : 292)
-                    NotchedDayTab(text: "TONIGHT · \(slot.day.shortName)")
-                        .padding(.leading, WeeknightTheme.Spacing.gutter)
-                        .offset(y: 1)
-                }
-                .clipShape(.rect(bottomLeadingRadius: 30, bottomTrailingRadius: 30))
-
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(recipe.title)
-                        .font(.system(.title, design: .default, weight: .black))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("meal-\(slot.day.rawValue)")
-                    Text("\(recipe.activeMinutes) min · serves \(slot.servings) · \(store.estimatedCost(for: recipe, servings: slot.servings).formatted())")
-                        .font(.subheadline)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                }
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-                .padding(.top, 14)
-                .padding(.bottom, 16)
-            }
+            Label("View Recipe", systemImage: "book")
+                .frame(minHeight: 44)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderedProminent)
+        .tint(WeeknightTheme.forest)
         .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
-
-        if let conflict = store.conflict(for: slot.day) {
-            planConflictWarning(conflict)
-                .padding(.horizontal, WeeknightTheme.Spacing.gutter)
-        }
+        .accessibilityLabel("View \(recipe.title) recipe for \(slot.day.rawValue)")
     }
 
-    private var plannedRowsExcludingFeature: some View {
-        VStack(spacing: 0) {
-            ForEach(nonFeaturedFilledSlots) { slot in
-                if let recipe = store.recipe(for: slot) {
-                    NavigationLink {
-                        RecipeDetailsView(recipeID: recipe.id, origin: .plan, initialServings: slot.servings)
-                    } label: {
-                        PlannedMealRow(slot: slot, recipe: recipe)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
-                    if let conflict = store.conflict(for: slot.day) {
-                        planConflictWarning(conflict)
-                            .padding(.vertical, 8)
-                    }
-                    Divider().overlay(WeeknightTheme.hairline)
-                }
-            }
+    private func replaceButton(day: Weekday) -> some View {
+        Button { swapDay = day } label: {
+            Label("Replace", systemImage: "arrow.triangle.2.circlepath")
+                .frame(minHeight: 44)
         }
+        .buttonStyle(.bordered)
+        .tint(WeeknightTheme.forest)
+        .accessibilityIdentifier("replace-meal-\(day.rawValue)")
     }
 
-    private var openNightsRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                openNightsLabel
-                Spacer(minLength: 6)
-                autofillButton(compact: true)
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                openNightsLabel
-                autofillButton(compact: false)
-            }
-        }
-        .padding(.vertical, 10)
-        .accessibilityElement(children: .contain)
-    }
-
-    private var openNightsLabel: some View {
-        Button {
-            navigation.showMeals()
+    private func clearButton(day: Weekday) -> some View {
+        Button(role: .destructive) {
+            clearMeal(day)
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "plus")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.forest)
-                    .frame(width: 48, height: 48)
-                    .background(WeeknightTheme.surfaceElevated)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(openDayTitle)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(WeeknightTheme.primaryText)
-                    Text("\(store.remainingBudget.formatted()) left to spend")
-                        .font(.subheadline)
-                        .foregroundStyle(WeeknightTheme.secondaryText)
-                }
-            }
+            Label("Clear", systemImage: "xmark")
+                .frame(minHeight: 44)
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(firstOpenDay.map { "empty-\($0.rawValue)" } ?? "empty-day")
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("clear-meal-\(day.rawValue)")
     }
 
-    private func autofillButton(compact: Bool) -> some View {
-        Button { runAutofill() } label: {
-            if store.isAutofilling {
-                ProgressView().tint(WeeknightTheme.background)
-            } else {
-                Text(compact ? "Fill for me" : "Fill the rest for me")
-            }
-        }
-        .font(.subheadline.weight(.bold))
-        .foregroundStyle(WeeknightTheme.background)
-        .padding(.horizontal, 18)
-        .frame(maxWidth: compact ? nil : .infinity, minHeight: 48)
-        .background(WeeknightTheme.forest)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .disabled(store.isAutofilling)
-        .accessibilityIdentifier("autofill-plan")
-    }
-
-    private var completedMosaic: some View {
+    private var completedCelebration: some View {
         let slots = store.plan.slots.filter { $0.recipeID != nil }
-        return VStack(spacing: 5) {
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Your week, together")
+                .font(.title2.weight(.black))
+                .foregroundStyle(WeeknightTheme.primaryText)
+            Text("A visual summary of the dinners listed above.")
+                .font(.subheadline)
+                .foregroundStyle(WeeknightTheme.secondaryText)
             if slots.count >= 3 {
                 HStack(spacing: 5) {
-                    mosaicLink(slots[0]).frame(maxWidth: .infinity)
+                    celebrationImage(slots[0]).frame(maxWidth: .infinity)
                     VStack(spacing: 5) {
-                        mosaicLink(slots[1])
-                        mosaicLink(slots[2])
+                        celebrationImage(slots[1])
+                        celebrationImage(slots[2])
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .frame(height: dynamicTypeSize.isAccessibilitySize ? 190 : 220)
+                .frame(height: dynamicTypeSize.isAccessibilitySize ? 150 : 180)
             }
             if slots.count >= 5 {
                 HStack(spacing: 5) {
-                    mosaicLink(slots[3])
-                    mosaicLink(slots[4])
+                    celebrationImage(slots[3])
+                    celebrationImage(slots[4])
                 }
-                .frame(height: dynamicTypeSize.isAccessibilitySize ? 100 : 118)
+                .frame(height: dynamicTypeSize.isAccessibilitySize ? 82 : 96)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Completed week photo summary")
     }
 
-    private func mosaicLink(_ slot: MealSlot) -> some View {
-        Group {
+    private func celebrationImage(_ slot: MealSlot) -> some View {
+        ZStack(alignment: .bottomLeading) {
             if let recipe = store.recipe(for: slot) {
-                NavigationLink {
-                    RecipeDetailsView(recipeID: recipe.id, origin: .plan, initialServings: slot.servings)
-                } label: {
-                    ZStack(alignment: .bottomLeading) {
-                        RecipeArtwork(style: recipe.artwork)
-                        LinearGradient(colors: [.clear, .black.opacity(0.2)], startPoint: .center, endPoint: .bottom)
-                        NotchedDayTab(text: slot.day.shortName, compact: true)
-                            .padding(6)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
-                .accessibilityLabel("\(slot.day.rawValue), \(recipe.title)")
+                RecipeArtwork(style: recipe.artwork)
             }
-        }
-    }
-
-    private var shoppingCallToAction: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("\(store.shoppingProgress.total) items · \(store.shoppingProgress.checked) already in")
-                    .font(.subheadline)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
-                    .accessibilityIdentifier("shopping-progress")
-                Spacer()
-                Text(store.plan.storeName)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.forest)
-            }
-            Button {
-                store.confirmationMessage = nil
-                showsShoppingList = true
-            } label: {
-                Text("Get the shopping list")
-            }
-            .buttonStyle(PrimaryActionButtonStyle())
-            .accessibilityIdentifier("open-shopping-list")
-            .accessibilityLabel("Shopping list, \(store.shoppingProgress.display) items checked")
+            NotchedDayTab(text: slot.day.shortName, compact: true)
+                .padding(6)
         }
     }
 
@@ -441,29 +394,10 @@ struct PlanView: View {
                 .font(.subheadline)
             Text("It stays planned until you replace or clear it. Verify labels and allergen information.")
                 .font(.footnote.weight(.semibold))
-            HStack(spacing: 8) {
-                Button("Replace") { swapDay = conflict.day }
-                    .buttonStyle(.borderedProminent)
-                    .tint(WeeknightTheme.tomato)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("replace-conflict-\(conflict.day.rawValue)")
-                Button("Clear", role: .destructive) {
-                    Task {
-                        do {
-                            try await store.clearMeal(on: conflict.day)
-                            UIAccessibility.post(notification: .announcement, argument: "\(conflict.day.rawValue)’s meal cleared")
-                        } catch {
-                            planActionError = error.localizedDescription
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("clear-conflict-\(conflict.day.rawValue)")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { conflictActions(conflict) }
+                VStack(alignment: .leading, spacing: 8) { conflictActions(conflict) }
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Resolve \(conflict.day.rawValue) conflict")
-            .accessibilityIdentifier("plan-conflict-\(conflict.day.rawValue)")
         }
         .foregroundStyle(WeeknightTheme.tomato)
         .padding(14)
@@ -479,24 +413,33 @@ struct PlanView: View {
             .padding(.vertical, WeeknightTheme.Spacing.large)
     }
 
-    private var featuredSlot: MealSlot? { store.plan.slots.first(where: { $0.recipeID != nil }) }
-    private var nonFeaturedFilledSlots: [MealSlot] {
-        guard let featuredSlot else { return [] }
-        return store.plan.slots.filter { $0.recipeID != nil && $0.id != featuredSlot.id }
+    @ViewBuilder
+    private func conflictActions(_ conflict: ScheduledPreferenceConflict) -> some View {
+        Button("Replace") { swapDay = conflict.day }
+            .buttonStyle(.borderedProminent)
+            .tint(WeeknightTheme.tomato)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("replace-conflict-\(conflict.day.rawValue)")
+        Button("Clear", role: .destructive) { clearMeal(conflict.day) }
+            .buttonStyle(.bordered)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("clear-conflict-\(conflict.day.rawValue)")
     }
+
     private var openSlots: [MealSlot] { store.plan.slots.filter { $0.recipeID == nil } }
-    private var firstOpenDay: Weekday? { openSlots.first?.day }
-    private var openDayTitle: String {
-        let names = openSlots.map { $0.day.rawValue }
-        if names.count == 2 { return "\(names[0]) and \(names[1]) open" }
-        if names.count == 1 { return "\(names[0]) open" }
-        return "\(names.count) nights open"
+    private var planHeadline: String {
+        if store.filledCount == 0 { return "Nothing planned yet" }
+        if store.filledCount == store.totalCount { return "Your week is ready" }
+        return "Your week at a glance"
     }
-    private var completionBudgetLine: String {
+    private var planHeadlineAccessibilityLabel: String {
+        store.filledCount == store.totalCount ? "Your week is ready to shop" : planHeadline
+    }
+    private var budgetStatusText: String {
         if store.remainingBudget.minorUnits >= 0 {
-            return "\(store.remainingBudget.formatted()) under budget at \(store.plan.storeName)"
+            return "\(store.remainingBudget.formatted()) remaining in this week’s budget"
         }
-        return "\(Money(minorUnits: abs(store.remainingBudget.minorUnits)).formatted()) over budget at \(store.plan.storeName)"
+        return "\(Money(minorUnits: abs(store.remainingBudget.minorUnits)).formatted()) over budget — replace or clear a meal to adjust"
     }
     private var showsBackendStatus: Bool {
         if case .local = store.backendState { return false }
@@ -521,36 +464,16 @@ struct PlanView: View {
             }
         }
     }
-}
 
-private struct PlannedMealRow: View {
-    @Environment(AppStore.self) private var store
-    let slot: MealSlot
-    let recipe: Recipe
-
-    var body: some View {
-        HStack(spacing: 10) {
-            RecipeArtwork(style: recipe.artwork, compact: true)
-                .frame(width: 52, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.thumbnail, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(recipe.title)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("meal-\(slot.day.rawValue)")
-                Text("\(slot.day.shortName) · \(recipe.activeMinutes) min")
-                    .font(.subheadline)
-                    .foregroundStyle(WeeknightTheme.secondaryText)
+    private func clearMeal(_ day: Weekday) {
+        Task {
+            do {
+                try await store.clearMeal(on: day)
+                UIAccessibility.post(notification: .announcement, argument: "\(day.rawValue)’s meal cleared")
+            } catch {
+                planActionError = error.localizedDescription
             }
-            Spacer(minLength: 8)
-            Text(store.estimatedCost(for: recipe, servings: slot.servings).formatted())
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(WeeknightTheme.primaryText)
         }
-        .padding(.vertical, 9)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(slot.day.rawValue), \(recipe.title), \(recipe.activeMinutes) minutes, serves \(slot.servings), \(store.estimatedCost(for: recipe, servings: slot.servings).formatted())")
     }
 }
 
