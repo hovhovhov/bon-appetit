@@ -151,7 +151,7 @@ struct RecipeDetailsView: View {
     private func hero(_ recipe: Recipe) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                RecipeArtwork(style: recipe.artwork)
+                RecipeArtwork(style: recipe.artwork, imageDescription: "Photo of \(recipe.title)")
                     .frame(height: dynamicTypeSize.isAccessibilitySize ? 220 : 292)
                 NotchedDayTab(text: scheduledSlot.map { "PLANNED · \($0.day.shortName)" } ?? recipe.sourceName)
                     .padding(.leading, WeeknightTheme.Spacing.gutter)
@@ -400,7 +400,6 @@ struct RecipeDetailsView: View {
             }
             .buttonStyle(ForestActionButtonStyle())
             .disabled(!noteIsEdited)
-            .opacity(noteIsEdited ? 1 : 0.5)
             .accessibilityIdentifier("save-recipe-note")
             TextEditor(text: $noteDraft)
                 .font(.body)

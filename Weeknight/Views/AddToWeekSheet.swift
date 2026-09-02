@@ -85,10 +85,9 @@ struct AddToWeekSheet: View {
 
     private var photoHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            RecipeArtwork(style: recipe.artwork)
+            RecipeArtwork(style: recipe.artwork, imageDescription: "Photo of \(recipe.title)")
                 .frame(height: 168)
                 .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
-                .accessibilityLabel("Photo of \(recipe.title)")
             Text(recipe.title)
                 .font(.title.weight(.black))
                 .foregroundStyle(WeeknightTheme.primaryText)
@@ -140,7 +139,7 @@ struct AddToWeekSheet: View {
                 }
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
+                    .foregroundStyle(selected ? WeeknightTheme.forest : WeeknightTheme.secondaryText)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 12)

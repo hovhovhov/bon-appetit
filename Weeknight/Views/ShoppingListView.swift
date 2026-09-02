@@ -164,18 +164,18 @@ struct ShoppingListView: View {
             HStack(spacing: 10) {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(item.isChecked ? WeeknightTheme.forest : WeeknightTheme.secondaryText.opacity(0.35))
+                    .foregroundStyle(item.isChecked ? WeeknightTheme.forest : WeeknightTheme.secondaryText)
                     .frame(width: 44, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(item.ingredient.displayName) · \(item.quantityDisplay)")
                         .font(.body.weight(.medium))
-                        .foregroundStyle(item.isChecked ? WeeknightTheme.secondaryText.opacity(0.7) : WeeknightTheme.primaryText)
+                        .foregroundStyle(item.isChecked ? WeeknightTheme.secondaryText : WeeknightTheme.primaryText)
                         .strikethrough(item.isChecked)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(contributionText(item))
                         .font(.caption)
                         .foregroundStyle(WeeknightTheme.secondaryText)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 Text(item.estimatedCost.formatted())

@@ -6,7 +6,7 @@ enum WeeknightTheme {
     static let surfaceElevated = Color(hex: 0xF1E9D8)
     static let primaryText = Color(hex: 0x14180F)
     static let bodyText = Color(hex: 0x14180F)
-    static let secondaryText = Color(hex: 0x73776D)
+    static let secondaryText = Color(hex: 0x62665D)
     static let forest = Color(hex: 0x14512F)
     static let deepPine = Color(hex: 0x14512F)
     static let deepestPine = Color(hex: 0x0D2E1D)
@@ -16,6 +16,8 @@ enum WeeknightTheme {
     static let wash = Color(hex: 0xE8EDDF)
     static let sand = Color(hex: 0xF1E9D8)
     static let hairline = Color(hex: 0xEBE3D2)
+    static let disabledText = Color(hex: 0x555A51)
+    static let disabledSurface = Color(hex: 0xE5DDCC)
     static let citrus = Color(hex: 0xB67C20)
     static let tomato = Color(hex: 0xA03B2A)
     static let photoText = Color(hex: 0xFBF8EC)
@@ -62,13 +64,18 @@ extension Color {
 }
 
 struct WeeknightCard: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var contrast
+
     func body(content: Content) -> some View {
         content
             .background(WeeknightTheme.surfaceElevated.opacity(0.58))
             .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous)
-                    .stroke(WeeknightTheme.hairline, lineWidth: 1)
+                    .stroke(
+                        contrast == .increased ? WeeknightTheme.forest.opacity(0.48) : WeeknightTheme.hairline,
+                        lineWidth: contrast == .increased ? 2 : 1
+                    )
             }
     }
 }
@@ -78,38 +85,56 @@ extension View {
 }
 
 struct PrimaryActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(WeeknightTheme.background)
+            .foregroundStyle(isEnabled ? WeeknightTheme.background : WeeknightTheme.disabledText)
             .frame(maxWidth: .infinity, minHeight: 56)
             .padding(.horizontal, WeeknightTheme.Spacing.standard)
-            .background(configuration.isPressed ? WeeknightTheme.deepestPine : WeeknightTheme.forest)
+            .background(
+                isEnabled
+                    ? (configuration.isPressed ? WeeknightTheme.deepestPine : WeeknightTheme.forest)
+                    : WeeknightTheme.disabledSurface
+            )
             .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.button, style: .continuous))
             .opacity(configuration.isPressed ? 0.9 : 1)
     }
 }
 
 struct ForestActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(WeeknightTheme.background)
+            .foregroundStyle(isEnabled ? WeeknightTheme.background : WeeknightTheme.disabledText)
             .frame(maxWidth: .infinity, minHeight: 56)
             .padding(.horizontal, WeeknightTheme.Spacing.standard)
-            .background(configuration.isPressed ? WeeknightTheme.deepPine : WeeknightTheme.forest)
+            .background(
+                isEnabled
+                    ? (configuration.isPressed ? WeeknightTheme.deepPine : WeeknightTheme.forest)
+                    : WeeknightTheme.disabledSurface
+            )
             .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.button, style: .continuous))
     }
 }
 
 struct SecondaryActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.bold))
-            .foregroundStyle(WeeknightTheme.primaryText)
+            .foregroundStyle(isEnabled ? WeeknightTheme.primaryText : WeeknightTheme.disabledText)
             .frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, WeeknightTheme.Spacing.standard)
-            .background(configuration.isPressed ? WeeknightTheme.surfaceElevated : Color.clear)
+            .background(
+                isEnabled
+                    ? (configuration.isPressed ? WeeknightTheme.surfaceElevated : Color.clear)
+                    : WeeknightTheme.disabledSurface
+            )
             .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)

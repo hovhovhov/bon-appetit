@@ -119,13 +119,15 @@ struct TagChip: View {
 struct RecipeArtwork: View {
     let style: ArtworkStyle
     var compact = false
+    var imageDescription: String? = nil
 
     var body: some View {
         Image("recipe_\(style.rawValue)")
             .resizable()
             .scaledToFill()
-        .clipped()
-        .accessibilityHidden(true)
+            .clipped()
+            .accessibilityHidden(imageDescription == nil)
+            .accessibilityLabel(imageDescription ?? "")
     }
 }
 
