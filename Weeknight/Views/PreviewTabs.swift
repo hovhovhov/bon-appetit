@@ -77,7 +77,7 @@ struct SavedView: View {
     private var results: [Recipe] { store.savedRecipes(matching: query, filter: filter) }
 
     var body: some View {
-        Group {
+        ZStack {
             switch store.savedMode {
             case .loading:
                 loadingState
@@ -122,7 +122,7 @@ struct SavedView: View {
 
     private var library: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 searchField
                     .padding(.bottom, 14)
                 filterPicker
@@ -156,10 +156,11 @@ struct SavedView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(WeeknightTheme.secondaryText)
-            TextField("Search recipes, tags or ingredients…", text: $query)
+            TextField("Search", text: $query)
                 .textInputAutocapitalization(.never)
                 .submitLabel(.search)
                 .accessibilityIdentifier("saved-search")
+                .accessibilityLabel("Search saved recipes, tags, or ingredients")
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44)
@@ -331,16 +332,18 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            Section("Personalization") {
+            Section {
                 Label("AI personalization and fallback", systemImage: "wand.and.stars")
                     .font(.headline)
                 Text(personalizationSummary)
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                settingsSectionHeader("Personalization")
             }
 
-            Section("Accessibility behavior") {
+            Section {
                 settingsValueRow("Reduce Motion", value: reduceMotion ? "On" : "Off", symbol: "figure.walk.motion")
                 settingsValueRow(
                     "Differentiate Without Color",
@@ -356,9 +359,11 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .accessibilityHint("Change these options in the iPhone Settings app")
+            } header: {
+                settingsSectionHeader("Accessibility behavior")
             }
 
-            Section("Privacy and Data") {
+            Section {
                 Label("Stored on this iPhone", systemImage: "iphone")
                     .font(.headline)
                 Text("Your week, preferences, saved recipes, notes, and shopping progress are stored locally. Weeknight does not require an account.")
@@ -373,9 +378,11 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
+            } header: {
+                settingsSectionHeader("Privacy and Data")
             }
 
-            Section("Data Reset") {
+            Section {
                 Button(role: .destructive) {
                     showsResetConfirmation = true
                 } label: {
@@ -384,17 +391,21 @@ struct SettingsView: View {
                 }
                 .accessibilityHint("Asks for confirmation before resetting your week and local recipe data")
                 .accessibilityIdentifier("settings-reset-data")
+            } header: {
+                settingsSectionHeader("Data Reset")
             }
 
-            Section("About") {
+            Section {
                 settingsValueRow("Weeknight", value: versionText, symbol: "info.circle")
                 Text("A warm, budget-aware weeknight dinner planner built for iPhone.")
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
+            } header: {
+                settingsSectionHeader("About")
             }
 
 #if DEBUG
-            Section("Developer diagnostics") {
+            Section {
                 settingsValueRow("Catalogue", value: "\(store.recipes.count) recipes", symbol: "shippingbox")
                 settingsValueRow("Recommendation source", value: store.backendState.displayTitle, symbol: "network")
                 if let detail = store.backendState.detail {
@@ -402,6 +413,8 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(WeeknightTheme.secondaryText)
                 }
+            } header: {
+                settingsSectionHeader("Developer diagnostics")
             }
 #endif
         }
@@ -423,6 +436,13 @@ struct SettingsView: View {
             Text("This restores the original local week and removes your preference changes, shopping progress, saved-recipe changes, and recipe notes.")
         }
         .accessibilityIdentifier("settings-screen")
+    }
+
+    private func settingsSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.bold))
+            .foregroundStyle(WeeknightTheme.secondaryText)
+            .textCase(nil)
     }
 
     private var personalizationSummary: String {

@@ -231,8 +231,9 @@ struct AddToWeekSheet: View {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 UIAccessibility.post(notification: .announcement, argument: "\(recipe.title) added to \(selectedDay.rawValue)")
                 if !reduceMotion { try? await Task.sleep(nanoseconds: 320_000_000) }
-                navigation.showPlans()
                 dismiss()
+                await Task.yield()
+                navigation.showPlans()
             } catch {
                 commitState = .failure(error.localizedDescription)
                 UINotificationFeedbackGenerator().notificationOccurred(.error)

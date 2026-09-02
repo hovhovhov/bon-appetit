@@ -1,8 +1,18 @@
 # Weeknight design handoff
 
-Status: review draft 1  
+Status: historical design evidence with a current Milestone 4.6 addendum
 Prepared: 2026-08-31  
-Implementation status: not started
+Implementation status: Milestones 1–4.6 implemented
+
+## Current Milestone 4.6 design addendum
+
+The September 2, 2026 product direction replaces the earlier TikTok-first information architecture described below. Keep the earlier material as historical evidence for Weeknight's visual identity, exact fixture values, and unchanged interaction/domain rules—not as the current navigation specification.
+
+The current primary destinations are Plans, Meals, Preferences, and Settings. Plans uses a scannable day-by-day list in empty, partial, complete, conflict, and over-budget states. Meals combines a utility-first For You list and the existing Saved library. The full-screen Discover feed is a Debug/test-only alternate presentation. Settings contains only working actions or honest information, and technical diagnostics remain Debug-only.
+
+The current visual system retains the warm cream canvas, forest green, food photography, budget intelligence, and recommendation explanations. It does not copy Mise assets, logos, colors, wording, emoji system, or exact layouts. Native controls, text labels, minimum 44 × 44 point targets, Dynamic Type, VoiceOver semantics, Reduce Motion, Increase Contrast, and non-color state cues take precedence over historic board geometry.
+
+The old four-tab Plan/Discover/Saved/You map, oversized photo feed as the default, floating photographic navigation treatment, avatar-launched Settings, and mock/dead Settings controls are superseded.
 
 ## 1. Authority, scope, and evidence
 

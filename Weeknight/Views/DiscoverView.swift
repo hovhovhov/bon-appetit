@@ -66,7 +66,7 @@ struct ForYouMealsView: View {
 
     private var recommendations: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 if showsBackendStatus {
                     BackendStatusView(onDark: false)
                         .padding(.bottom, 16)
@@ -115,10 +115,11 @@ struct ForYouMealsView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(WeeknightTheme.secondaryText)
-            TextField("Search recommended meals", text: $query)
+            TextField("Search", text: $query)
                 .textInputAutocapitalization(.never)
                 .submitLabel(.search)
                 .accessibilityIdentifier("for-you-search")
+                .accessibilityLabel("Search recommended meals")
             if !query.isEmpty {
                 Button { query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -212,7 +213,9 @@ struct ForYouMealsView: View {
     }
 
     private func explanation(for ranked: RankedRecipe) -> String {
-        let messages = ranked.explanations + ranked.cautions
+        // Keep actionable cautions in the identified explanation even when a
+        // recommendation also has several positive fit reasons.
+        let messages = ranked.cautions + ranked.explanations
         return messages.isEmpty ? ranked.recipe.rationale : messages.prefix(2).joined(separator: " ")
     }
 

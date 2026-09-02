@@ -1,9 +1,25 @@
 # Weeknight — Native iPhone Implementation Plan
 
-Status: approved direction; ready to begin Milestone 1  
+Status: Milestones 1–4.6 implemented; Milestone 4.6 is the current product direction
 Platform: iPhone only  
 Implementation: native Swift and SwiftUI  
 Prepared: 2026-08-31
+
+## Current Milestone 4.6 amendment
+
+The approved September 2, 2026 information-architecture and accessibility refinement supersedes the earlier TikTok-first navigation and presentation direction wherever they conflict. The remainder of this document is retained as historical milestone rationale and as the source for unchanged domain, persistence, repository, and backend rules.
+
+- The persistent native `TabView` destinations are **Plans**, **Meals**, **Preferences**, and **Settings**.
+- Plans always shows the current week summary, shopping progress, and every configured cooking day. Its completed collage is secondary to the day list.
+- Meals contains **For You** and **Saved**. For You is a calm searchable recommendation list; Saved preserves timestamps, filters, search, notes, and planning actions.
+- The previous full-screen Discover feed is excluded from Release navigation and retained behind a Debug/test launch boundary.
+- Preferences remains the only planning-settings destination and preserves draft, cancel, reconciliation, atomic commit, and safety behavior.
+- Settings contains honest personalization, accessibility, privacy/data, reset, and about information. Backend diagnostics are Debug-only.
+- Recipe Details and Shopping List are pushed destinations. Add, replace, and preference editing remain sheets with origin-aware dismissal.
+- Navigation and presentation state is not persisted. `WeekPlan` remains the source of truth for cost, completion, and shopping derivation.
+- Onboarding, authentication, accounts, family sharing, cloud sync, notifications, subscriptions, paywalls, analytics, deployment, production hosting, and new API capabilities remain out of scope.
+
+Milestone 4.6 validation and screenshot evidence is recorded in `MILESTONE_4_6_VALIDATION.md` and `../artifacts/milestone-4-6/screenshots/`.
 
 ## 1. Purpose
 
@@ -563,4 +579,3 @@ The task should:
 7. Launch the app in iOS Simulator and capture the four required screenshots.
 8. Report what was implemented, any intentional visual deviations, tests run, and remaining issues.
 9. Stop for review before Milestone 2.
-

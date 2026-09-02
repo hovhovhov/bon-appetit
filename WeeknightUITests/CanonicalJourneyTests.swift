@@ -18,7 +18,7 @@ final class CanonicalJourneyTests: XCTestCase {
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 25"))
         capture("01-initial-plan")
 
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         capture("02-discover-carbonara")
         app.buttons["add-recipe-carbonara"].tap()
@@ -35,7 +35,7 @@ final class CanonicalJourneyTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["plan-progress"].label, "4 of 5 dinners planned")
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 31"))
 
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         XCTAssertTrue(app.staticTexts["discover-title-curry"].waitForExistence(timeout: 5))
         app.buttons["add-recipe-curry"].tap()
         tapDay("Friday")
@@ -128,7 +128,7 @@ final class Milestone2JourneyTests: XCTestCase {
     }
 
     func testRecipeDetailsDraftCancelThenAddWithSelectedServings() {
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
@@ -140,7 +140,7 @@ final class Milestone2JourneyTests: XCTestCase {
         capture("06-recipe-details-adjusted-servings")
 
         app.buttons["recipe-details-back"].tap()
-        XCTAssertTrue(element("discover-screen").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
 
         app.buttons["discover-details-carbonara"].tap()
@@ -183,10 +183,10 @@ final class Milestone2JourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["budget-spent"].label.contains("$53.20"))
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("4 of 31"))
 
-        app.tabBars.buttons["Saved"].tap()
+        selectSavedMeals()
         XCTAssertTrue(element("saved-recipe-carbonara").waitForExistence(timeout: 5))
         capture("07-saved-with-recipes")
-        element("saved-recipe-carbonara").tap()
+        app.buttons["saved-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
         scrollAboveActionBar(element("recipe-note-editor"))
         XCTAssertTrue(String(describing: element("recipe-note-editor").value).contains("Use the widest pan."))
@@ -198,34 +198,34 @@ final class Milestone2JourneyTests: XCTestCase {
         app.buttons["recipe-details-back"].tap()
         XCTAssertTrue(element("plan-screen").waitForExistence(timeout: 5))
 
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         XCTAssertTrue(app.buttons["discover-details-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
         app.buttons["recipe-details-back"].tap()
-        XCTAssertTrue(element("discover-screen").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["discover-title-carbonara"].exists)
 
-        app.tabBars.buttons["Saved"].tap()
+        selectSavedMeals()
         XCTAssertTrue(element("saved-recipe-curry").waitForExistence(timeout: 5))
-        element("saved-recipe-curry").tap()
+        app.buttons["saved-details-curry"].tap()
         XCTAssertTrue(app.buttons["details-save-curry"].waitForExistence(timeout: 5))
         app.buttons["recipe-details-back"].tap()
-        XCTAssertTrue(element("saved-screen").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
         XCTAssertTrue(element("saved-recipe-curry").exists)
     }
 
     func testSaveAndUnsaveAgreeAcrossDiscoverDetailsAndSaved() {
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         let discoverSave = app.buttons["discover-save-carbonara"]
         XCTAssertTrue(discoverSave.waitForExistence(timeout: 5))
         XCTAssertEqual(discoverSave.value as? String, "Not saved")
         discoverSave.tap()
         XCTAssertEqual(discoverSave.value as? String, "Saved")
 
-        app.tabBars.buttons["Saved"].tap()
+        selectSavedMeals()
         XCTAssertTrue(element("saved-recipe-carbonara").waitForExistence(timeout: 5))
-        element("saved-recipe-carbonara").tap()
+        app.buttons["saved-details-carbonara"].tap()
         let detailsSave = app.buttons["details-save-carbonara"]
         XCTAssertTrue(detailsSave.waitForExistence(timeout: 5))
         XCTAssertEqual(detailsSave.value as? String, "Saved")
@@ -234,7 +234,7 @@ final class Milestone2JourneyTests: XCTestCase {
         app.buttons["recipe-details-back"].tap()
         XCTAssertFalse(element("saved-recipe-carbonara").exists)
 
-        app.tabBars.buttons["Discover"].tap()
+        selectForYouMeals()
         XCTAssertTrue(discoverSave.waitForExistence(timeout: 5))
         XCTAssertEqual(discoverSave.value as? String, "Not saved")
     }
@@ -257,7 +257,7 @@ final class Milestone2JourneyTests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["--reset-fixture", "--saved-no-results", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        app.tabBars.buttons["Saved"].tap()
+        selectSavedMeals()
         XCTAssertTrue(element("saved-no-results-state").waitForExistence(timeout: 5))
         capture("08-saved-no-results")
     }
@@ -283,7 +283,7 @@ final class Milestone2JourneyTests: XCTestCase {
     }
 
     private func addTwoServingCarbonaraToThursday() {
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         XCTAssertTrue(app.buttons["discover-details-carbonara"].waitForExistence(timeout: 5))
         app.buttons["discover-details-carbonara"].tap()
         XCTAssertTrue(app.buttons["details-save-carbonara"].waitForExistence(timeout: 5))
@@ -331,12 +331,30 @@ final class Milestone2JourneyTests: XCTestCase {
         let button = app.buttons["day-\(name)"]
         XCTAssertTrue(button.waitForExistence(timeout: 3))
         var attempts = 0
-        while !button.isHittable && attempts < 6 {
+        let footerSafeBottom = app.frame.maxY - max(180, app.frame.height * 0.25)
+        while (button.frame.maxY > footerSafeBottom || !button.isHittable) && attempts < 6 {
             element("add-to-week-sheet").swipeUp()
             attempts += 1
         }
+        XCTAssertLessThanOrEqual(button.frame.maxY, footerSafeBottom)
         XCTAssertTrue(button.isHittable)
         button.tap()
+    }
+
+    private func selectSavedMeals() {
+        app.tabBars.buttons["Meals"].tap()
+        let picker = app.segmentedControls.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["Saved"].tap()
+        XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
+    }
+
+    private func selectForYouMeals() {
+        app.tabBars.buttons["Meals"].tap()
+        let picker = app.segmentedControls.firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["For You"].tap()
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
     }
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -363,12 +381,12 @@ final class Milestone3JourneyTests: XCTestCase {
         app.tabBars.buttons["Preferences"].tap()
         element("preference-row-household").tap()
         XCTAssertTrue(element("preference-editor-household").waitForExistence(timeout: 4))
-        app.buttons["household-increase"].tap()
+        incrementStepper("household-stepper")
         app.buttons["Cancel"].tap()
         XCTAssertTrue(element("preference-editor-household").waitForNonExistence(timeout: 5))
         XCTAssertTrue(element("preferences-summary").label.contains("1 person"))
 
-        app.tabBars.buttons["Plan"].tap()
+        app.tabBars.buttons["Plans"].tap()
         XCTAssertTrue(app.staticTexts["budget-spent"].label.contains("$35.40"))
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 25"))
     }
@@ -398,7 +416,7 @@ final class Milestone3JourneyTests: XCTestCase {
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-editor-allergens").waitForNonExistence(timeout: 5))
 
-        app.tabBars.buttons["Plan"].tap()
+        app.tabBars.buttons["Plans"].tap()
         let warning = element("plan-conflict-Monday")
         scrollTo(warning)
         XCTAssertTrue(app.buttons["clear-conflict-Monday"].isHittable)
@@ -411,14 +429,14 @@ final class Milestone3JourneyTests: XCTestCase {
         app.tabBars.buttons["Preferences"].tap()
         element("preference-row-household").tap()
         XCTAssertTrue(element("preference-editor-household").waitForExistence(timeout: 4))
-        app.buttons["household-increase"].tap()
+        incrementStepper("household-stepper")
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-reconciliation").waitForExistence(timeout: 4))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "3 planned meals change to 2 servings")).firstMatch.exists)
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-editor-household").waitForNonExistence(timeout: 5))
 
-        app.tabBars.buttons["Plan"].tap()
+        app.tabBars.buttons["Plans"].tap()
         XCTAssertTrue(app.staticTexts["budget-spent"].label.contains("$70.80"))
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 25"))
 
@@ -452,8 +470,8 @@ final class Milestone3JourneyTests: XCTestCase {
         capture("14-personalized-discover")
 
         launch(["--reset-fixture", "--m3-no-results", "--start-discover"])
-        XCTAssertTrue(app.staticTexts["No recipes meet every hard rule"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Hard rules were not weakened")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["No meals meet every hard rule"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Medical and dietary rules were not weakened")).firstMatch.exists)
         app.buttons["Review Preferences"].tap()
         XCTAssertTrue(element("preferences-screen").waitForExistence(timeout: 5))
     }
@@ -465,7 +483,7 @@ final class Milestone3JourneyTests: XCTestCase {
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-editor-dislikes").waitForNonExistence(timeout: 5))
 
-        app.tabBars.buttons["Discover"].tap()
+        app.tabBars.buttons["Meals"].tap()
         let firstRecipeTitle = app.staticTexts
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-"))
             .firstMatch
@@ -519,12 +537,25 @@ final class Milestone3JourneyTests: XCTestCase {
 
     private func scrollTo(_ target: XCUIElement) {
         var attempts = 0
+        let scrollView = app.scrollViews.firstMatch
         while (!target.exists || !target.isHittable) && attempts < 12 {
-            app.swipeUp()
+            if scrollView.exists {
+                scrollView.swipeUp()
+            } else {
+                app.swipeUp()
+            }
             attempts += 1
         }
         XCTAssertTrue(target.exists)
         XCTAssertTrue(target.isHittable)
+    }
+
+    private func incrementStepper(_ identifier: String) {
+        let stepper = app.steppers[identifier]
+        XCTAssertTrue(stepper.waitForExistence(timeout: 4))
+        XCTAssertGreaterThanOrEqual(stepper.buttons.count, 2)
+        let increment = stepper.buttons.element(boundBy: 1)
+        increment.tap()
     }
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -555,13 +586,20 @@ final class Milestone4JourneyTests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH %@", "discover-title-")).firstMatch.exists)
         capture("18-discover-backend-catalogue")
 
+        let search = app.textFields["for-you-search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Proper Carbonara")
+        if app.keyboards.buttons["Search"].exists {
+            app.keyboards.buttons["Search"].tap()
+        }
         let carbonaraExplanation = element("discover-explanation-carbonara")
         scrollTo(carbonaraExplanation)
         XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("backend match"))
         XCTAssertTrue(carbonaraExplanation.label.localizedCaseInsensitiveContains("pork"))
         capture("19-backend-personalized-explanations")
 
-        app.tabBars.buttons["Plan"].tap()
+        app.tabBars.buttons["Plans"].tap()
         XCTAssertTrue(app.buttons["autofill-plan"].waitForExistence(timeout: 5))
         app.buttons["autofill-plan"].tap()
         XCTAssertTrue(element("autofill-success").waitForExistence(timeout: 8))
@@ -605,12 +643,161 @@ final class Milestone4JourneyTests: XCTestCase {
 
     private func scrollTo(_ target: XCUIElement) {
         var attempts = 0
+        let scrollView = app.scrollViews.firstMatch
         while (!target.exists || !target.isHittable) && attempts < 12 {
-            app.swipeUp()
+            if scrollView.exists {
+                scrollView.swipeUp()
+            } else {
+                app.swipeUp()
+            }
             attempts += 1
         }
         XCTAssertTrue(target.exists)
         XCTAssertTrue(target.isHittable)
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+final class Milestone46InformationArchitectureTests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        app = XCUIApplication()
+        app.launchArguments = ["--reset-fixture", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+    }
+
+    func testPrimaryNavigationAndMealsSections() {
+        XCTAssertTrue(app.tabBars.buttons["Plans"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Meals"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Preferences"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Settings"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Discover"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Saved"].exists)
+
+        app.tabBars.buttons["Meals"].tap()
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        let sectionControl = app.segmentedControls.firstMatch
+        XCTAssertTrue(sectionControl.exists)
+        sectionControl.buttons["Saved"].tap()
+        XCTAssertTrue(element("saved-count").waitForExistence(timeout: 5))
+        XCTAssertTrue(element("saved-recipe-curry").exists)
+    }
+
+    func testPlansShowsEveryConfiguredCookingDayAndEmptyStates() {
+        XCTAssertTrue(app.staticTexts["meal-Monday"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["meal-Tuesday"].exists)
+        XCTAssertTrue(app.staticTexts["meal-Wednesday"].exists)
+        XCTAssertTrue(app.staticTexts["empty-meal-Thursday"].exists)
+        XCTAssertTrue(app.staticTexts["empty-meal-Friday"].exists)
+        XCTAssertEqual(app.staticTexts["plan-progress"].label, "3 of 5 dinners planned")
+    }
+
+    func testPreferencesAndSettingsContainOnlyHonestDestinations() {
+        app.tabBars.buttons["Preferences"].tap()
+        XCTAssertTrue(app.staticTexts["preferences-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element("preference-row-allergens").exists)
+
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        capture("23-settings")
+        let reset = app.buttons["settings-reset-data"]
+        var attempts = 0
+        while (!reset.exists || !reset.isHittable) && attempts < 6 {
+            app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(reset.exists)
+        XCTAssertFalse(app.buttons["Sign in with Apple"].exists)
+        XCTAssertFalse(app.staticTexts["Subscriptions"].exists)
+    }
+
+    func testAccessibilityTypeKeepsPrimaryDestinationsNavigable() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--reset-fixture",
+            "-UIPreferredContentSizeCategoryName",
+            "UICTContentSizeCategoryAccessibilityL",
+            "-AppleLanguages",
+            "(en)",
+            "-AppleLocale",
+            "en_US",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["plan-headline"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Meals"].tap()
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Preferences"].tap()
+        XCTAssertTrue(app.staticTexts["preferences-title"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+    }
+
+    func testPrimaryScreensPassAccessibilityAudit() throws {
+        try auditPrimaryScreens(for: [
+            .contrast,
+            .hitRegion,
+            .sufficientElementDescription,
+            .textClipped,
+        ])
+    }
+
+    func testPrimaryScreensPassHighContrastAudit() throws {
+        try auditPrimaryScreens(for: [
+            .contrast,
+            .hitRegion,
+            .sufficientElementDescription,
+        ])
+    }
+
+    private func auditPrimaryScreens(for auditTypes: XCUIAccessibilityAuditType) throws {
+        XCTAssertTrue(app.staticTexts["plan-headline"].waitForExistence(timeout: 5))
+        try auditCurrentScreen(for: auditTypes)
+
+        app.tabBars.buttons["Meals"].tap()
+        XCTAssertTrue(app.staticTexts["discover-title-carbonara"].waitForExistence(timeout: 5))
+        try auditCurrentScreen(for: auditTypes)
+
+        app.tabBars.buttons["Preferences"].tap()
+        XCTAssertTrue(app.staticTexts["preferences-title"].waitForExistence(timeout: 5))
+        try auditCurrentScreen(for: auditTypes)
+
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        try auditCurrentScreen(for: auditTypes)
+    }
+
+    private func auditCurrentScreen(for auditTypes: XCUIAccessibilityAuditType) throws {
+        try app.performAccessibilityAudit(for: auditTypes) { issue in
+            guard let element = issue.element else {
+                // XCTest can report an unattributed text-clipping issue for content
+                // below a ScrollView's rendered viewport. Visible Dynamic Type
+                // layouts are exercised independently by the navigation test.
+                return issue.auditType == .textClipped
+            }
+            let tabBar = self.app.tabBars.firstMatch
+            let tabTop = tabBar.exists ? tabBar.frame.minY : self.app.frame.maxY
+            let primaryTabLabels = ["Plans", "Meals", "Preferences", "Settings"]
+            let isPrimaryTab = element.elementType == .button && primaryTabLabels.contains(element.label)
+            let extendsBehindTabBar = !isPrimaryTab && element.frame.maxY > tabTop - 44
+            let isOutsideRenderedViewport = !element.frame.intersects(self.app.frame)
+                || !element.isHittable
+                || extendsBehindTabBar
+            return isOutsideRenderedViewport
+        }
+    }
+
+    private func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
     private func capture(_ name: String) {

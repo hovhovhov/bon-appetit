@@ -13,7 +13,7 @@ struct PlanView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 weekSummary
 
                 if showsBackendStatus {
@@ -99,10 +99,14 @@ struct PlanView: View {
 
     private var weekSummary: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("PLANS · \(store.plan.weekLabel.uppercased())")
-                .font(.caption.weight(.bold))
-                .tracking(1.6)
-                .foregroundStyle(WeeknightTheme.forest)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("PLANS")
+                Text(store.plan.weekLabel.uppercased())
+            }
+            .font(.caption.weight(.bold))
+            .tracking(1.6)
+            .foregroundStyle(WeeknightTheme.forest)
+            .fixedSize(horizontal: false, vertical: true)
 
             Text(planHeadline)
                 .font(.largeTitle.weight(.black))
@@ -206,20 +210,36 @@ struct PlanView: View {
                     .foregroundStyle(WeeknightTheme.secondaryText)
             }
 
-            Button("Find meals") { navigation.showMeals() }
-                .buttonStyle(PrimaryActionButtonStyle())
-
-            Button { runAutofill() } label: {
-                if store.isAutofilling {
-                    ProgressView()
-                } else {
-                    Label(store.filledCount == 0 ? "Draft my week" : "Fill open days", systemImage: "wand.and.stars")
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    findMealsButton
+                    autofillButton
+                }
+            } else {
+                HStack(spacing: 10) {
+                    findMealsButton
+                    autofillButton
                 }
             }
-            .buttonStyle(SecondaryActionButtonStyle())
-            .disabled(store.isAutofilling)
-            .accessibilityIdentifier("autofill-plan")
         }
+    }
+
+    private var findMealsButton: some View {
+        Button("Find meals") { navigation.showMeals() }
+            .buttonStyle(PrimaryActionButtonStyle())
+    }
+
+    private var autofillButton: some View {
+        Button { runAutofill() } label: {
+            if store.isAutofilling {
+                ProgressView()
+            } else {
+                Label(store.filledCount == 0 ? "Draft my week" : "Fill open days", systemImage: "wand.and.stars")
+            }
+        }
+        .buttonStyle(SecondaryActionButtonStyle())
+        .disabled(store.isAutofilling)
+        .accessibilityIdentifier("autofill-plan")
     }
 
     @ViewBuilder
@@ -230,7 +250,8 @@ struct PlanView: View {
                     .font(.caption.weight(.bold))
                     .tracking(1.2)
                     .foregroundStyle(WeeknightTheme.forest)
-                    .frame(width: 48, height: 44, alignment: .leading)
+                    .frame(minWidth: 48, minHeight: 44, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: true)
 
                 if let recipe = store.recipe(for: slot) {
                     RecipeArtwork(style: recipe.artwork, compact: true)
@@ -243,14 +264,12 @@ struct PlanView: View {
                             .foregroundStyle(WeeknightTheme.primaryText)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("meal-\(slot.day.rawValue)")
-                        Text("\(recipe.activeMinutes) min · serves \(slot.servings) · \(store.estimatedCost(for: recipe, servings: slot.servings).formatted())")
-                            .font(.subheadline)
-                            .foregroundStyle(WeeknightTheme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
+                        recipeMetadata(recipe: recipe, servings: slot.servings)
                         if store.conflict(for: slot.day) == nil {
                             Label("Fits your current setup", systemImage: "checkmark.circle")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(WeeknightTheme.forest)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 } else {
@@ -265,6 +284,7 @@ struct PlanView: View {
                         Text("No meal planned")
                             .font(.headline.weight(.bold))
                             .foregroundStyle(WeeknightTheme.primaryText)
+                            .accessibilityIdentifier("empty-meal-\(slot.day.rawValue)")
                         Text("Choose a recommendation for \(slot.day.rawValue).")
                             .font(.subheadline)
                             .foregroundStyle(WeeknightTheme.secondaryText)
@@ -289,18 +309,36 @@ struct PlanView: View {
         }
         .padding(.horizontal, WeeknightTheme.Spacing.gutter)
         .padding(.vertical, 16)
-        .accessibilityIdentifier("plan-day-\(slot.day.rawValue)")
+    }
+
+    private func recipeMetadata(recipe: Recipe, servings: Int) -> some View {
+        let cost = store.estimatedCost(for: recipe, servings: servings).formatted()
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Text("\(recipe.activeMinutes) min")
+                Text("·")
+                    .accessibilityHidden(true)
+                Text("serves \(servings)")
+                Text("·")
+                    .accessibilityHidden(true)
+                Text(cost)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(recipe.activeMinutes) min")
+                Text("serves \(servings)")
+                Text(cost)
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(WeeknightTheme.secondaryText)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(recipe.activeMinutes) minutes, serves \(servings), estimated cost \(cost)")
     }
 
     private func filledDayActions(slot: MealSlot, recipe: Recipe) -> some View {
-        ViewThatFits(in: .horizontal) {
+        VStack(alignment: .leading, spacing: 8) {
+            viewRecipeLink(slot: slot, recipe: recipe)
             HStack(spacing: 8) {
-                viewRecipeLink(slot: slot, recipe: recipe)
-                replaceButton(day: slot.day)
-                clearButton(day: slot.day)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                viewRecipeLink(slot: slot, recipe: recipe)
                 replaceButton(day: slot.day)
                 clearButton(day: slot.day)
             }
@@ -315,9 +353,12 @@ struct PlanView: View {
         } label: {
             Label("View Recipe", systemImage: "book")
                 .frame(minHeight: 44)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(.borderedProminent)
         .tint(WeeknightTheme.forest)
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier("open-meal-\(slot.day.rawValue)")
         .accessibilityLabel("View \(recipe.title) recipe for \(slot.day.rawValue)")
     }
@@ -326,9 +367,12 @@ struct PlanView: View {
         Button { swapDay = day } label: {
             Label("Replace", systemImage: "arrow.triangle.2.circlepath")
                 .frame(minHeight: 44)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(.bordered)
         .tint(WeeknightTheme.forest)
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier("replace-meal-\(day.rawValue)")
     }
 
@@ -338,8 +382,11 @@ struct PlanView: View {
         } label: {
             Label("Clear", systemImage: "xmark")
                 .frame(minHeight: 44)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(.bordered)
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier("clear-meal-\(day.rawValue)")
     }
 
@@ -403,6 +450,8 @@ struct PlanView: View {
         .padding(14)
         .background(WeeknightTheme.tomato.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.row, style: .continuous))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan-conflict-\(conflict.day.rawValue)")
     }
 
     private var estimateFootnote: some View {

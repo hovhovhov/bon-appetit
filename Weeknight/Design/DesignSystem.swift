@@ -6,7 +6,7 @@ enum WeeknightTheme {
     static let surfaceElevated = Color(hex: 0xF1E9D8)
     static let primaryText = Color(hex: 0x14180F)
     static let bodyText = Color(hex: 0x14180F)
-    static let secondaryText = Color(hex: 0x62665D)
+    static let secondaryText = Color(hex: 0x4F554C)
     static let forest = Color(hex: 0x14512F)
     static let deepPine = Color(hex: 0x14512F)
     static let deepestPine = Color(hex: 0x0D2E1D)

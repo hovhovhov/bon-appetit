@@ -64,6 +64,7 @@ struct RootView: View {
         let appearance = UITabBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor(red: 251 / 255, green: 248 / 255, blue: 236 / 255, alpha: 1)
+        appearance.backgroundEffect = nil
         appearance.shadowColor = UIColor(red: 235 / 255, green: 227 / 255, blue: 210 / 255, alpha: 1)
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
@@ -76,6 +77,7 @@ struct RootView: View {
         TabView(selection: $navigation.selectedTab) {
             NavigationStack {
                 PlanView()
+                    .weeknightTabBarClearance()
             }
             .toolbarBackground(WeeknightTheme.background, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
@@ -84,6 +86,7 @@ struct RootView: View {
 
             NavigationStack {
                 MealsView()
+                    .weeknightTabBarClearance()
             }
             .toolbarBackground(WeeknightTheme.background, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
@@ -92,6 +95,7 @@ struct RootView: View {
 
             NavigationStack {
                 PreferencesView()
+                    .weeknightTabBarClearance()
             }
             .toolbarBackground(WeeknightTheme.background, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
@@ -100,6 +104,7 @@ struct RootView: View {
 
             NavigationStack {
                 SettingsView()
+                    .weeknightTabBarClearance()
             }
             .toolbarBackground(WeeknightTheme.background, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
@@ -131,6 +136,22 @@ struct RootView: View {
         }
         .task {
             await store.connectBackendIfNeeded()
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func weeknightTabBarClearance() -> some View {
+        if #available(iOS 26.0, *) {
+            safeAreaInset(edge: .bottom, spacing: 0) {
+                WeeknightTheme.background
+                    .frame(height: 110)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            self
         }
     }
 }
