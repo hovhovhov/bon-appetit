@@ -36,18 +36,8 @@ struct AddToWeekSheet: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     photoHeader
                     VStack(alignment: .leading, spacing: 0) {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("Which night?")
-                                    .font(.largeTitle.weight(.black))
-                                Spacer()
-                                recipePrice
-                            }
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Which night?").font(.largeTitle.weight(.black))
-                                recipePrice
-                            }
-                        }
+                        Text("Which night?")
+                            .font(.title.weight(.black))
                         .padding(.bottom, 14)
 
                         ForEach(Array(store.plan.slots.enumerated()), id: \.element.id) { index, slot in
@@ -78,7 +68,15 @@ struct AddToWeekSheet: View {
                 .background(WeeknightTheme.background)
                 .overlay(alignment: .top) { Divider().overlay(WeeknightTheme.hairline) }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Add to Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") { dismiss() }
+                        .disabled(isCommitting)
+                        .accessibilityHint("Closes without changing your plan")
+                }
+            }
         }
         .presentationBackground(WeeknightTheme.background)
         .interactiveDismissDisabled(isCommitting)
@@ -86,31 +84,21 @@ struct AddToWeekSheet: View {
     }
 
     private var photoHeader: some View {
-        ZStack(alignment: .topTrailing) {
-            ZStack(alignment: .bottomLeading) {
-                RecipeArtwork(style: recipe.artwork)
-                    .frame(height: 210)
-                LinearGradient(colors: [.black.opacity(0.28), .clear, .black.opacity(0.62)], startPoint: .top, endPoint: .bottom)
-                Text(recipe.title)
-                    .font(.title.weight(.black))
-                    .foregroundStyle(WeeknightTheme.photoText)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(WeeknightTheme.Spacing.gutter)
-            }
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(WeeknightTheme.photoText)
-                    .frame(width: 44, height: 44)
-                    .background(Color.black.opacity(0.3))
-                    .clipShape(Circle())
-            }
-            .disabled(isCommitting)
-            .accessibilityLabel("Close Add to week")
-            .padding(14)
+        VStack(alignment: .leading, spacing: 12) {
+            RecipeArtwork(style: recipe.artwork)
+                .frame(height: 168)
+                .clipShape(RoundedRectangle(cornerRadius: WeeknightTheme.Radius.card, style: .continuous))
+                .accessibilityLabel("Photo of \(recipe.title)")
+            Text(recipe.title)
+                .font(.title.weight(.black))
+                .foregroundStyle(WeeknightTheme.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            recipePrice
         }
-        .clipShape(.rect(bottomLeadingRadius: WeeknightTheme.Radius.sheet, bottomTrailingRadius: WeeknightTheme.Radius.sheet))
-        .accessibilityElement(children: .contain)
+        .padding(.horizontal, WeeknightTheme.Spacing.gutter)
+        .padding(.top, WeeknightTheme.Spacing.medium)
+        .padding(.bottom, WeeknightTheme.Spacing.standard)
+        .accessibilityElement(children: .combine)
     }
 
     private var recipePrice: some View {
@@ -230,7 +218,6 @@ struct AddToWeekSheet: View {
         }
         .buttonStyle(PrimaryActionButtonStyle())
         .disabled(selectedDay == nil || isCommitting || commitState == .success)
-        .opacity(selectedDay == nil ? 0.42 : 1)
         .accessibilityIdentifier("add-confirm")
         .accessibilityValue(isCommitting ? "Busy" : (selectedDay == nil ? "Disabled" : "Enabled"))
     }

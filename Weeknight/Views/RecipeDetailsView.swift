@@ -511,7 +511,6 @@ struct RecipeDetailsView: View {
                 }
                 .buttonStyle(PrimaryActionButtonStyle())
                 .disabled(isCommitting || !store.eligibility(for: recipe).isEligible)
-                .opacity(store.eligibility(for: recipe).isEligible ? 1 : 0.45)
                 .accessibilityIdentifier("details-add-to-week")
             }
         }
@@ -599,28 +598,29 @@ struct SwapMealSheet: View {
             }
             .background(WeeknightTheme.background.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
-                Button {
-                    commit()
-                } label: {
-                    if isCommitting {
-                        HStack { ProgressView(); Text("Swapping…") }
-                    } else {
-                        Text(selectedRecipe.map { "Swap to \($0.title)" } ?? "Choose a replacement")
+                VStack(spacing: 0) {
+                    Divider().overlay(WeeknightTheme.hairline)
+                    Button {
+                        commit()
+                    } label: {
+                        if isCommitting {
+                            HStack { ProgressView(); Text("Swapping…") }
+                        } else {
+                            Text(selectedRecipe.map { "Swap to \($0.title)" } ?? "Choose a replacement")
+                        }
                     }
+                    .buttonStyle(PrimaryActionButtonStyle())
+                    .disabled(selectedRecipe == nil || isCommitting)
+                    .padding(WeeknightTheme.Spacing.gutter)
+                    .accessibilityIdentifier("swap-confirm")
                 }
-                .buttonStyle(PrimaryActionButtonStyle())
-                .disabled(selectedRecipe == nil || isCommitting)
-                .opacity(selectedRecipe == nil ? 0.5 : 1)
-                .padding(WeeknightTheme.Spacing.gutter)
-                .background(.ultraThinMaterial)
-                .accessibilityIdentifier("swap-confirm")
+                .background(WeeknightTheme.background)
             }
             .navigationTitle("Swap \(day.rawValue)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close", systemImage: "xmark") { dismiss() }
-                        .labelStyle(.iconOnly)
+                    Button("Close") { dismiss() }
                         .disabled(isCommitting)
                 }
             }
