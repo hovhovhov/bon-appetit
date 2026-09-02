@@ -332,7 +332,7 @@ struct SettingsView: View {
     var body: some View {
         List {
             Section("Personalization") {
-                Label("How suggestions work", systemImage: "wand.and.stars")
+                Label("AI personalization and fallback", systemImage: "wand.and.stars")
                     .font(.headline)
                 Text(personalizationSummary)
                     .font(.subheadline)
@@ -355,6 +355,7 @@ struct SettingsView: View {
                 Text("Weeknight follows these iPhone accessibility settings automatically.")
                     .font(.footnote)
                     .foregroundStyle(WeeknightTheme.secondaryText)
+                    .accessibilityHint("Change these options in the iPhone Settings app")
             }
 
             Section("Privacy and Data") {
@@ -365,6 +366,10 @@ struct SettingsView: View {
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Medical and dietary rules are applied on the device before any optional personalized selection.")
+                    .font(.subheadline)
+                    .foregroundStyle(WeeknightTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("When a development personalization backend is configured, it receives only eligible recipe identifiers, planning totals, and soft preferences. Raw medical-allergen selections are not included in that request.")
                     .font(.subheadline)
                     .foregroundStyle(WeeknightTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -415,7 +420,7 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This restores the demo week and removes your local preference changes, shopping progress, saved-recipe changes, and recipe notes.")
+            Text("This restores the original local week and removes your preference changes, shopping progress, saved-recipe changes, and recipe notes.")
         }
         .accessibilityIdentifier("settings-screen")
     }
