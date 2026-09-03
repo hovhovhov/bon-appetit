@@ -3,6 +3,30 @@ import XCTest
 @testable import Weeknight
 
 final class Milestone3DomainTests: XCTestCase {
+    func testPreferencePresentationUsesIntegerMoneyAndCountsChangedFields() {
+        var draft = UserPreferences.canonical
+        draft.weeklyBudget = Money(minorUnits: 9_500)
+        draft.householdSize = 4
+        draft.preferredProteins = [.chicken]
+
+        XCTAssertEqual(
+            PreferencePresentation.approximateBudgetPerDinner(draft),
+            Money(minorUnits: 1_900)
+        )
+        XCTAssertEqual(
+            PreferencePresentation.changedFieldCount(from: .canonical, to: draft),
+            3
+        )
+    }
+
+    func testExactBudgetParsingNeverUsesFloatingPointMoney() {
+        XCTAssertEqual(PreferencePresentation.parsedBudgetMinorUnits("$95"), 9_500)
+        XCTAssertEqual(PreferencePresentation.parsedBudgetMinorUnits("95.5"), 9_550)
+        XCTAssertEqual(PreferencePresentation.parsedBudgetMinorUnits("1,200.09"), 120_009)
+        XCTAssertNil(PreferencePresentation.parsedBudgetMinorUnits("95.123"))
+        XCTAssertNil(PreferencePresentation.parsedBudgetMinorUnits("not money"))
+    }
+
     func testEverySupportedAllergenProducesAFirstClassHardReason() throws {
         for allergen in MedicalAllergen.allCases {
             let recipe = try XCTUnwrap(

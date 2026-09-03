@@ -274,7 +274,11 @@ final class Milestone2JourneyTests: XCTestCase {
     func testSavedNoResultsScreenshot() {
         app.terminate()
         app = XCUIApplication()
-        app.launchArguments = ["--reset-fixture", "--saved-no-results", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = [
+            "--reset-fixture", "--saved-no-results",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL",
+            "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+        ]
         app.launch()
         selectSavedMeals()
         XCTAssertTrue(element("saved-no-results-state").waitForExistence(timeout: 5))
@@ -408,12 +412,15 @@ final class Milestone3JourneyTests: XCTestCase {
     }
 
     func testPreferenceDraftCancelDoesNotLeak() {
-        app.tabBars.buttons["Preferences"].tap()
-        element("preference-row-household").tap()
-        XCTAssertTrue(element("preference-editor-household").waitForExistence(timeout: 4))
-        incrementStepper("household-stepper")
-        app.buttons["Cancel"].tap()
-        XCTAssertTrue(element("preference-editor-household").waitForNonExistence(timeout: 5))
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "household"])
+        let increment = app.buttons["household-increment"]
+        scrollTo(increment)
+        increment.tap()
+        XCTAssertTrue(element("preferences-unsaved-count").waitForExistence(timeout: 4))
+        XCTAssertEqual(element("household-value").value as? String, "2 people")
+        app.buttons["preference-discard"].tap()
+        XCTAssertTrue(element("preferences-unsaved-count").waitForNonExistence(timeout: 5))
+        XCTAssertEqual(element("household-value").value as? String, "1 person")
         XCTAssertTrue(element("preferences-summary").label.contains("1 person"))
 
         app.tabBars.buttons["Plans"].tap()
@@ -429,22 +436,24 @@ final class Milestone3JourneyTests: XCTestCase {
         launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "proteins"])
         XCTAssertTrue(element("preference-editor-proteins").waitForExistence(timeout: 4))
         capture("11-preferences-multi-select")
+        scrollTo(app.buttons["protein-Pork"])
         app.buttons["protein-Pork"].tap()
         app.buttons["preference-save"].tap()
-        XCTAssertTrue(element("preference-editor-proteins").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(element("preferences-saved-confirmation").waitForExistence(timeout: 5))
 
         launch(["--start-preferences", "--open-preference-editor", "allergens"])
-        XCTAssertTrue(element("preference-editor-allergens").waitForExistence(timeout: 4))
+        XCTAssertTrue(element("allergen-safety-note").waitForExistence(timeout: 4))
+        scrollTo(app.buttons["allergen-Soy"])
         XCTAssertTrue(element("allergen-safety-note").exists)
         capture("12-medical-allergens")
         app.buttons["allergen-Soy"].tap()
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-reconciliation").waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Monday: Honey Soy Chicken")).firstMatch.exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Wednesday: Ginger Rice Noodle")).firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Monday: Honey Soy Chicken")).firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Wednesday: Ginger Rice Noodle")).firstMatch.exists)
         capture("13-preference-reconciliation")
-        app.buttons["preference-save"].tap()
-        XCTAssertTrue(element("preference-editor-allergens").waitForNonExistence(timeout: 5))
+        app.buttons["preference-reconciliation-save"].tap()
+        XCTAssertTrue(element("preference-reconciliation").waitForNonExistence(timeout: 5))
 
         app.tabBars.buttons["Plans"].tap()
         let warning = element("plan-conflict-Monday")
@@ -456,31 +465,27 @@ final class Milestone3JourneyTests: XCTestCase {
     }
 
     func testHouseholdAndCookingDayDraftsCommitAtomicallyAndPersist() {
-        app.tabBars.buttons["Preferences"].tap()
-        element("preference-row-household").tap()
-        XCTAssertTrue(element("preference-editor-household").waitForExistence(timeout: 4))
-        incrementStepper("household-stepper")
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "household"])
+        scrollTo(app.buttons["household-increment"])
+        app.buttons["household-increment"].tap()
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-reconciliation").waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "3 planned meals change to 2 servings")).firstMatch.exists)
-        app.buttons["preference-save"].tap()
-        XCTAssertTrue(element("preference-editor-household").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "3 planned dinners change to 2 servings")).firstMatch.exists)
+        app.buttons["preference-reconciliation-save"].tap()
+        XCTAssertTrue(element("preference-reconciliation").waitForNonExistence(timeout: 5))
 
         app.tabBars.buttons["Plans"].tap()
         XCTAssertTrue(app.staticTexts["budget-spent"].label.contains("$70.80"))
         XCTAssertTrue(app.buttons["open-shopping-list"].label.contains("3 of 25"))
 
         app.tabBars.buttons["Preferences"].tap()
-        let days = element("preference-row-cookingDays")
-        scrollTo(days)
-        days.tap()
-        XCTAssertTrue(element("preference-editor-cookingDays").waitForExistence(timeout: 4))
+        scrollTo(app.buttons["day-Mon"])
         app.buttons["day-Mon"].tap()
         app.buttons["preference-save"].tap()
         XCTAssertTrue(element("preference-reconciliation").waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Monday: Honey Soy Chicken")).firstMatch.exists)
-        app.buttons["preference-save"].tap()
-        XCTAssertTrue(element("preference-editor-cookingDays").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Monday: Honey Soy Chicken")).firstMatch.exists)
+        app.buttons["preference-reconciliation-save"].tap()
+        XCTAssertTrue(element("preference-reconciliation").waitForNonExistence(timeout: 5))
 
         app.terminate()
         launch([])
@@ -512,9 +517,17 @@ final class Milestone3JourneyTests: XCTestCase {
     func testDislikeDoesNotRemoveOrMedicalizeExploreRecipe() {
         launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "dislikes"])
         XCTAssertTrue(element("preference-editor-dislikes").waitForExistence(timeout: 4))
-        app.buttons["dislike-pancetta"].tap()
+        let add = app.buttons["add-disliked-ingredient"]
+        scrollTo(add)
+        add.tap()
+        let ingredientSearch = app.searchFields.firstMatch
+        XCTAssertTrue(ingredientSearch.waitForExistence(timeout: 4))
+        ingredientSearch.tap()
+        ingredientSearch.typeText("Pancetta")
+        XCTAssertTrue(app.buttons["Pancetta"].waitForExistence(timeout: 4))
+        app.buttons["Pancetta"].tap()
         app.buttons["preference-save"].tap()
-        XCTAssertTrue(element("preference-editor-dislikes").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(element("preferences-saved-confirmation").waitForExistence(timeout: 5))
 
         app.tabBars.buttons["Meals"].tap()
         let search = app.textFields["for-you-search"]
@@ -562,7 +575,11 @@ final class Milestone3JourneyTests: XCTestCase {
     private func launch(_ additionalArguments: [String]) {
         if app != nil { app.terminate() }
         app = XCUIApplication()
-        app.launchArguments = additionalArguments + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        var arguments = additionalArguments
+        if !arguments.contains("-UIPreferredContentSizeCategoryName") {
+            arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        }
+        app.launchArguments = arguments + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
     }
 
@@ -579,14 +596,6 @@ final class Milestone3JourneyTests: XCTestCase {
         }
         XCTAssertTrue(target.exists)
         XCTAssertTrue(target.isHittable)
-    }
-
-    private func incrementStepper(_ identifier: String) {
-        let stepper = app.steppers[identifier]
-        XCTAssertTrue(stepper.waitForExistence(timeout: 4))
-        XCTAssertGreaterThanOrEqual(stepper.buttons.count, 2)
-        let increment = stepper.buttons.element(boundBy: 1)
-        increment.tap()
     }
 
     private func element(_ identifier: String) -> XCUIElement {
@@ -732,7 +741,7 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
 
         app.tabBars.buttons["Preferences"].tap()
         XCTAssertTrue(element("preferences-title").waitForExistence(timeout: 5))
-        assertCanReveal(element("preference-row-appliances"), screen: "Preferences")
+        assertCanReveal(element("preference-editor-appliances"), screen: "Preferences", maxSwipes: 18)
 
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
@@ -751,7 +760,7 @@ final class Milestone46InformationArchitectureTests: XCTestCase {
     func testPreferencesAndSettingsContainOnlyHonestDestinations() {
         app.tabBars.buttons["Preferences"].tap()
         XCTAssertTrue(app.staticTexts["preferences-title"].waitForExistence(timeout: 5))
-        XCTAssertTrue(element("preference-row-allergens").exists)
+        assertCanReveal(element("allergen-safety-note"), screen: "Preferences", maxSwipes: 16)
 
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
@@ -1000,6 +1009,175 @@ final class Milestone461MealsRefinementTests: XCTestCase {
         var attempts = 0
         while (!target.exists || !target.isHittable) && attempts < 12 {
             app.swipeUp()
+            attempts += 1
+        }
+        XCTAssertTrue(target.exists)
+        XCTAssertTrue(target.isHittable)
+    }
+
+    private func element(_ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+final class Milestone462PreferencesRedesignTests: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        launch(["--reset-fixture", "--start-preferences"])
+    }
+
+    func testWeekDraftControlsStaySynchronizedUntilDiscarded() {
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "budget"])
+        XCTAssertTrue(element("preference-editor-budget").waitForExistence(timeout: 5))
+        let decrement = app.buttons["budget-decrement"]
+        XCTAssertTrue(decrement.waitForExistence(timeout: 3))
+        decrement.tap()
+        XCTAssertEqual(element("budget-value").value as? String, "$70.00")
+        XCTAssertEqual(element("preferences-unsaved-count").label, "1 unsaved change")
+
+        app.buttons["budget-exact"].tap()
+        let exact = app.textFields["budget-exact-field"]
+        XCTAssertTrue(exact.waitForExistence(timeout: 4))
+        XCTAssertEqual(exact.value as? String, "70.00")
+        app.navigationBars.buttons["Cancel"].tap()
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "cookingTime"])
+        let thirty = app.buttons["cooking-time-30"]
+        XCTAssertTrue(thirty.waitForExistence(timeout: 4))
+        thirty.tap()
+        XCTAssertTrue(thirty.isSelected)
+        XCTAssertEqual(thirty.value as? String, "Selected")
+        app.buttons["preference-discard"].tap()
+        XCTAssertEqual(app.buttons["cooking-time-45"].value as? String, "Selected")
+    }
+
+    func testSelectionStatesCookingDaysStylesDietAllergensAndKitchen() {
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "cookingDays"])
+        let friday = app.buttons["day-Fri"]
+        XCTAssertEqual(friday.value as? String, "Selected, cooking day")
+        friday.tap()
+        XCTAssertEqual(friday.value as? String, "Not selected")
+        app.buttons["preference-discard"].tap()
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "mealStyles"])
+        let speedy = app.buttons["style-preference-Speedy"]
+        XCTAssertTrue(speedy.waitForExistence(timeout: 4))
+        speedy.tap()
+        XCTAssertTrue(speedy.isSelected)
+        XCTAssertTrue((speedy.value as? String)?.contains("Selected") == true)
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "dietary"])
+        let vegetarian = app.buttons["dietary-Vegetarian"]
+        XCTAssertTrue(vegetarian.waitForExistence(timeout: 4))
+        vegetarian.tap()
+        XCTAssertTrue(vegetarian.isSelected)
+        XCTAssertEqual(vegetarian.value as? String, "On, selected dietary exclusion")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "allergens"])
+        let none = app.buttons["allergen-none"]
+        let soy = app.buttons["allergen-Soy"]
+        XCTAssertTrue(none.waitForExistence(timeout: 4))
+        scrollTo(soy)
+        XCTAssertTrue(none.isSelected)
+        soy.tap()
+        XCTAssertTrue(soy.isSelected)
+        XCTAssertFalse(none.isSelected)
+        none.tap()
+        XCTAssertFalse(soy.isSelected)
+        XCTAssertTrue(none.isSelected)
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "appliances"])
+        let microwave = app.buttons["appliance-Microwave"]
+        scrollTo(microwave)
+        XCTAssertEqual(microwave.value as? String, "Don’t have it, not selected")
+        microwave.tap()
+        XCTAssertEqual(microwave.value as? String, "Have it, selected")
+        XCTAssertTrue(element("kitchen-eligibility-summary").label.contains("catalogue meals fit"))
+    }
+
+    func testApprovedPreferenceReviewFrames() {
+        capture("preferences-your-week")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "budget"])
+        XCTAssertTrue(element("preference-editor-budget").waitForExistence(timeout: 5))
+        capture("preferences-budget-time-styles")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "proteins"])
+        XCTAssertTrue(element("preference-editor-proteins").waitForExistence(timeout: 5))
+        capture("preferences-proteins-dislikes")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "dietary"])
+        XCTAssertTrue(element("preference-editor-dietary").waitForExistence(timeout: 5))
+        capture("preferences-diet-allergens")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "appliances"])
+        XCTAssertTrue(element("preference-editor-appliances").waitForExistence(timeout: 5))
+        capture("preferences-kitchen")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "mealStyles"])
+        app.buttons["style-preference-Speedy"].tap()
+        scrollTo(app.buttons["protein-Chicken"])
+        app.buttons["protein-Chicken"].tap()
+        scrollTo(app.buttons["add-disliked-ingredient"])
+        app.buttons["add-disliked-ingredient"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 4))
+        search.tap()
+        search.typeText("Pancetta")
+        app.buttons["Pancetta"].tap()
+        XCTAssertEqual(element("preferences-unsaved-count").label, "3 unsaved changes")
+        capture("preferences-unsaved-changes")
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "allergens"])
+        scrollTo(app.buttons["allergen-Soy"])
+        app.buttons["allergen-Soy"].tap()
+        XCTAssertTrue(element("preferences-unsaved-count").waitForExistence(timeout: 3))
+        capture("preferences-reconciliation")
+        app.buttons["preference-save"].tap()
+        XCTAssertTrue(element("preference-reconciliation").waitForExistence(timeout: 4))
+        app.buttons["Keep editing"].tap()
+
+        launch(["--reset-fixture", "--start-preferences", "--open-preference-editor", "appliances"])
+        let microwave = app.buttons["appliance-Microwave"]
+        scrollTo(microwave)
+        microwave.tap()
+        app.buttons["preference-save"].tap()
+        XCTAssertTrue(element("preferences-saved-confirmation").waitForExistence(timeout: 5))
+        capture("preferences-saved-confirmation")
+
+        launch([
+            "--reset-fixture", "--start-preferences", "--open-preference-editor", "cookingDays",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL",
+        ])
+        XCTAssertTrue(element("preference-editor-cookingDays").waitForExistence(timeout: 5))
+        capture("preferences-accessibility-large")
+    }
+
+    private func launch(_ arguments: [String]) {
+        if app != nil { app.terminate() }
+        app = XCUIApplication()
+        var launchArguments = arguments
+        if !launchArguments.contains("-UIPreferredContentSizeCategoryName") {
+            launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        }
+        app.launchArguments = launchArguments + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+    }
+
+    private func scrollTo(_ target: XCUIElement) {
+        var attempts = 0
+        let scrollView = app.scrollViews["preferences-screen"]
+        while (!target.exists || !target.isHittable) && attempts < 12 {
+            scrollView.swipeUp()
             attempts += 1
         }
         XCTAssertTrue(target.exists)

@@ -1,6 +1,6 @@
 # Weeknight
 
-Weeknight is a native SwiftUI iPhone application. Milestone 4.6.1 refines Meals into the approved Explore and Saved browsing experience without changing Plans or the app's deterministic planning, safety, persistence, or backend boundaries. Explore now offers real preference-backed styles, eligible-catalogue search, and cuisine browsing; the earlier vertical Discover feed remains available only in Debug/test builds.
+Weeknight is a native SwiftUI iPhone application. Milestone 4.6.2 redesigns Preferences as the approved continuous four-chapter control surface without changing Plans, Meals, Settings, persistence, or the app's deterministic planning, safety, and backend boundaries. Preference edits remain a draft until they are discarded or atomically saved; safety-critical changes still pass through the existing reconciliation flow.
 
 The app remains fully usable on device. AI never determines allergens, dietary safety, canonical prices, ingredient quantities, budget arithmetic, or shopping totals.
 
@@ -92,6 +92,10 @@ Validation on September 2, 2026 passed 79 iOS tests (52 unit and 27 UI), 24 back
 
 Milestone 4.6.1 adds the approved Meals exploration refinement: Explore/Saved presentation, expandable real meal styles, eligible-only search, catalogue-backed cuisine cards, dense cuisine results with deterministic sorting, and the revised Saved rows. Final test counts, builds, accessibility checks, Simulator comparisons, and captures are recorded in [the Milestone 4.6.1 validation record](docs/MILESTONE_4_6_1_VALIDATION.md).
 
+## Recorded Milestone 4.6.2 validation
+
+Milestone 4.6.2 adds the approved expressive Preferences surface: Your week, Your taste, Rules we never break, and Your kitchen. It keeps the established draft/review/atomic-save architecture, derives every count and monetary summary from real state, and presents text-backed accessible selected and safety states. Validation passed 59 Swift tests, 34 UI tests, 25 backend tests, backend typecheck/build, and a Release Simulator build. See [the Milestone 4.6.2 validation record](docs/MILESTONE_4_6_2_VALIDATION.md).
+
 ## Safety and fallback boundary
 
 The iPhone first computes the hard-eligible recipe-ID allow-list using medical-allergen, dietary, and appliance rules. The backend intersects those IDs with its validated catalogue before calling any provider. Provider results use strict schemas and undergo ID, uniqueness, required-day, and budget checks. The iPhone then repeats eligibility and plan validation before committing through the existing domain layer.
@@ -122,13 +126,14 @@ The canonical fixture starts with one-person servings; Monday through Friday coo
 
 - `Weeknight/` — native SwiftUI app, domain, SwiftData persistence, local and remote repositories, design system, and views
 - `WeeknightTests/` — domain, store, persistence, and remote-repository tests
-- `WeeknightUITests/` — Milestone 1–4.6.1 Simulator journeys and accessibility audits
+- `WeeknightUITests/` — Milestone 1–4.6.2 Simulator journeys and accessibility audits
 - `backend/` — local TypeScript service, validated catalogue, provider adapters, and tests
 - `docs/` — authoritative implementation/design documents and architecture decisions
 - `design-reference/` — visual/exported references; never linked into the app target
 - `artifacts/milestone-4/screenshots/` — final Milestone 4 Simulator evidence
 - `artifacts/milestone-4-6/screenshots/` — final Milestone 4.6 primary-screen evidence
 - `artifacts/milestone-4-6-1/screenshots/` — final Milestone 4.6.1 Meals evidence
+- `artifacts/milestone-4-6-2/screenshots/` — final Milestone 4.6.2 Preferences evidence
 
 ## Milestone 4 evidence
 

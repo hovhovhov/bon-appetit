@@ -1,9 +1,24 @@
 # Weeknight — Native iPhone Implementation Plan
 
-Status: Milestones 1–4.6.1 implemented; Milestone 4.6.1 is the current Meals direction
+Status: Milestones 1–4.6.2 implemented; Milestone 4.6.2 is the current Preferences direction
 Platform: iPhone only  
 Implementation: native Swift and SwiftUI  
 Prepared: 2026-08-31
+
+## Current Milestone 4.6.2 Preferences amendment
+
+The approved September 2, 2026 expressive Preferences redesign supersedes the earlier grouped preference presentation wherever they conflict. Plans, Meals, Settings, persistence, eligibility, ranking, reconciliation, and derived plan/shopping calculations remain unchanged.
+
+- Preferences is one continuous four-chapter surface: **Your week**, **Your taste**, **Rules we never break**, and **Your kitchen**.
+- Every interaction edits one local draft. Discard restores the committed state; Save uses the existing atomic preference commit and deterministic reconciliation path.
+- Your week exposes the supported market, supermarket, household, cooking-day, weekly-budget, and maximum-cooking-time values. The per-dinner figure uses integer money divided by the number of selected cooking days.
+- Your taste exposes only canonical meal styles, proteins, and normalized catalogue ingredients. These controls explicitly remain soft ranking signals; style counts derive from the eligible catalogue.
+- Rules we never break exposes only the existing deterministic dietary and medical-allergen taxonomies. The written On/Off, selected, exclusion, and reconciliation states supplement color.
+- Your kitchen exposes only the existing appliance taxonomy. Its result count derives from the same deterministic eligibility logic used by the product.
+- Standard-size controls use the approved paired/grid rhythms. Accessibility Dynamic Type stacks or expands controls, and the sticky save surface becomes vertical rather than clipping.
+- The success state is real and temporary; no fake saved time or nonfunctional Undo is presented.
+
+Milestone 4.6.2 validation and screenshot evidence is recorded in `MILESTONE_4_6_2_VALIDATION.md` and `../artifacts/milestone-4-6-2/screenshots/`.
 
 ## Current Milestone 4.6.1 Meals amendment
 

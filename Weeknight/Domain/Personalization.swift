@@ -1,6 +1,13 @@
 import Foundation
 
 enum Personalization {
+    static func approximateBudgetPerDinner(_ preferences: UserPreferences) -> Money {
+        Money(
+            minorUnits: preferences.weeklyBudget.minorUnits / max(1, preferences.cookingDays.count),
+            currencyCode: preferences.weeklyBudget.currencyCode
+        )
+    }
+
     static func eligibility(of recipe: Recipe, preferences: UserPreferences) -> RecipeEligibility {
         var reasons: [EligibilityReason] = []
 

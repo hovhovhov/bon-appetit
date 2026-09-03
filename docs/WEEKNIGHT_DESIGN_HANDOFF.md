@@ -1,8 +1,18 @@
 # Weeknight design handoff
 
-Status: historical design evidence with current Milestone 4.6 and 4.6.1 addenda
+Status: historical design evidence with current Milestone 4.6, 4.6.1, and 4.6.2 addenda
 Prepared: 2026-08-31  
-Implementation status: Milestones 1–4.6.1 implemented
+Implementation status: Milestones 1–4.6.2 implemented
+
+## Current Milestone 4.6.2 Preferences design addendum
+
+The nine approved Preferences PNGs attached on September 2, 2026 are the primary visual and interaction references for Preferences. They replace the earlier grouped form presentation without reopening Plans, Meals, Settings, persistence, or domain behavior.
+
+Preferences is a continuous scrolling surface with four visually distinct chapters. Your week uses the warm cream canvas and prominent household, day, budget, and time controls. Your taste shifts to a paprika-tinted surface for expressive style cards, protein chips, and removable dislikes. Rules we never break uses a dark forest register with calm dietary rows and an amber medical-allergen safety module. Your kitchen returns to cream and uses explicit Have it/Don't have it appliance cards.
+
+All visible values come from the committed preference state or the clearly pending draft. Counts, budget-per-dinner, eligible recipes, reconciliation consequences, and selected states are derived rather than copied from the presentation board. The sticky surface states the actual changed-field count and either saves atomically, opens the existing safety review, or discards the draft. The saved confirmation is temporary and honest; no fabricated timestamp or decorative Undo is shown.
+
+Unsupported examples in the board are intentionally absent: Halal and unsupported allergen categories, Tofu/Lamb/Beans, Slow cooker, nearby-store claims, mock recipe counts, and mock budget ranges. At accessibility Dynamic Type sizes, paired selectors and grids stack and rows grow. Native iOS 26 tab-bar material and safe-area geometry may differ from the static device frames because the approved app-wide navigation was preserved.
 
 ## Current Milestone 4.6.1 Meals design addendum
 
